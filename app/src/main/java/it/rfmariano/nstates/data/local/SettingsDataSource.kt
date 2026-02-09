@@ -35,6 +35,6 @@ class SettingsDataSource @Inject constructor(
 
     companion object {
         private val KEY_USER_AGENT = stringPreferencesKey("user_agent")
-        private const val DEFAULT_USER_AGENT = "NStates Android Client (contact: github.com/rfmariano)"
+        private const val DEFAULT_USER_AGENT = "NStates Android Client (contact: rfmariano.it)"
     }
 }
