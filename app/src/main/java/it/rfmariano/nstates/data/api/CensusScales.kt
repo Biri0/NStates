@@ -1,0 +1,110 @@
+package it.rfmariano.nstates.data.api
+
+/**
+ * Maps NationStates World Census scale IDs to short, human-readable labels.
+ *
+ * Scale IDs are returned in the `<RANK id="...">` elements of the issue-answer
+ * response. The API only provides numeric IDs, so we maintain a static lookup.
+ *
+ * Source: NationStates API `q=censusname&scale={id}` — titles shortened for UI.
+ */
+object CensusScales {
+
+    /** Freedom-related scale IDs (shown separately in issue results). */
+    val FREEDOM_IDS = setOf(0, 1, 2)
+
+    fun nameFor(id: Int): String = SCALE_NAMES.getOrDefault(id, "Census #$id")
+
+    private val SCALE_NAMES: Map<Int, String> = mapOf(
+        0 to "Civil Rights",
+        1 to "Economy",
+        2 to "Political Freedom",
+        3 to "Population",
+        4 to "Rich-Poor Divide",
+        5 to "Unexpected Death Rate",
+        6 to "Compassion",
+        7 to "Eco-Friendliness",
+        8 to "Social Conservatism",
+        9 to "Nudity",
+        10 to "Automobile Manufacturing",
+        11 to "Cheese Exports",
+        12 to "Basket Weaving",
+        13 to "Information Technology",
+        14 to "Pizza Delivery",
+        15 to "Trout Fishing",
+        16 to "Arms Manufacturing",
+        17 to "Agriculture",
+        18 to "Soda Pop",
+        19 to "Timber Woodchipping",
+        20 to "Mining",
+        21 to "Insurance",
+        22 to "Furniture Restoration",
+        23 to "Retail",
+        24 to "Publishing",
+        25 to "Gambling",
+        26 to "Manufacturing",
+        27 to "Government Size",
+        28 to "Welfare",
+        29 to "Public Healthcare",
+        30 to "Law Enforcement",
+        31 to "Industry Subsidies",
+        32 to "Religiousness",
+        33 to "Income Equality",
+        34 to "Niceness",
+        35 to "Rudeness",
+        36 to "Intelligence",
+        37 to "Ignorance",
+        38 to "Political Apathy",
+        39 to "Health",
+        40 to "Cheerfulness",
+        41 to "Weather",
+        42 to "Low Crime",
+        43 to "Safety",
+        44 to "Lifespan",
+        45 to "Extremism",
+        46 to "Defense Forces",
+        47 to "Pacifism",
+        48 to "Pro-Market",
+        49 to "Average Tax Rate",
+        50 to "Low Tax Burden",
+        51 to "Government Corruption",
+        52 to "Low Corruption",
+        53 to "Authoritarianism",
+        54 to "Youth Rebelliousness",
+        55 to "Culture",
+        56 to "Workforce Participation",
+        57 to "Public Transport",
+        58 to "Tourism",
+        59 to "Armed Citizens",
+        60 to "Drug Use",
+        61 to "Obesity",
+        62 to "Secularism",
+        63 to "Environmental Beauty",
+        64 to "Avoided",
+        65 to "Influence",
+        66 to "WA Endorsements",
+        67 to "Averageness",
+        68 to "Development",
+        69 to "Primitiveness",
+        70 to "Scientific Advancement",
+        71 to "Inclusiveness",
+        72 to "Average Income",
+        73 to "Poor Income",
+        74 to "Wealthy Income",
+        75 to "Public Education",
+        76 to "Economic Output",
+        77 to "Crime Rate",
+        78 to "Foreign Aid",
+        79 to "Black Market",
+        80 to "Stationary",
+        81 to "Survivors",
+        82 to "Zombies",
+        83 to "Dead",
+        84 to "Zombification",
+        85 to "Disposable Income",
+        86 to "International Artwork",
+        87 to "Patriotism",
+        88 to "Food Quality",
+        89 to "Accessibility"
+    )
+}

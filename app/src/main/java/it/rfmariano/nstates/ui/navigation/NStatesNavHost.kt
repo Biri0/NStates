@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import it.rfmariano.nstates.ui.issues.IssuesScreen
 import it.rfmariano.nstates.ui.login.LoginScreen
 import it.rfmariano.nstates.ui.nation.NationScreen
 
@@ -12,6 +13,7 @@ import it.rfmariano.nstates.ui.nation.NationScreen
 fun NStatesNavHost(
     navController: NavHostController,
     startDestination: String,
+    onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -31,12 +33,12 @@ fun NStatesNavHost(
 
         composable(Routes.NATION) {
             NationScreen(
-                onLogout = {
-                    navController.navigate(Routes.LOGIN) {
-                        popUpTo(Routes.NATION) { inclusive = true }
-                    }
-                }
+                onLogout = onLogout
             )
+        }
+
+        composable(Routes.ISSUES) {
+            IssuesScreen()
         }
     }
 }

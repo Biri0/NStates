@@ -63,28 +63,6 @@ class NationApi @Inject constructor(
         }
     }
 
-    /**
-     * Verify login using the ping shard (registers activity, prevents CTE).
-     */
-    suspend fun ping(
-        nationName: String,
-        userAgent: String,
-        pin: String? = null,
-        autologin: String? = null
-    ): Result<NationStatesApiClient.ApiResult> {
-        val params = buildMap {
-            put("nation", nationName)
-            put("q", "ping")
-        }
-
-        return client.get(
-            userAgent = userAgent,
-            params = params,
-            pin = pin,
-            autologin = autologin
-        )
-    }
-
     companion object {
         val DEFAULT_SHARDS = listOf(
             "name", "fullname", "type", "motto", "category",

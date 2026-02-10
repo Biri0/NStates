@@ -6,4 +6,5 @@ package it.rfmariano.nstates.ui.navigation
 object Routes {
     const val LOGIN = "login"
     const val NATION = "nation"
+    const val ISSUES = "issues"
 }

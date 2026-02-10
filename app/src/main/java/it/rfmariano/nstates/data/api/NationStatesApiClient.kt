@@ -3,12 +3,13 @@ package it.rfmariano.nstates.data.api
 import it.rfmariano.nstates.data.model.AuthResponseHeaders
 import it.rfmariano.nstates.data.model.RateLimitInfo
 import io.ktor.client.HttpClient
+import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
-import io.ktor.client.request.post
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.Parameters
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -49,7 +50,7 @@ class NationStatesApiClient @Inject constructor(
         password: String? = null,
         autologin: String? = null,
         pin: String? = null
-    ): Result<ApiResult> = makeRequest(userAgent, params, password, autologin, pin, isPost = false)
+    ): Result<ApiResult> = makeRequest(userAgent, params, password, autologin, pin)
 
     suspend fun post(
         userAgent: String,
@@ -57,35 +58,20 @@ class NationStatesApiClient @Inject constructor(
         password: String? = null,
         autologin: String? = null,
         pin: String? = null
-    ): Result<ApiResult> = makeRequest(userAgent, params, password, autologin, pin, isPost = true)
-
-    private suspend fun makeRequest(
-        userAgent: String,
-        params: Map<String, String>,
-        password: String?,
-        autologin: String?,
-        pin: String?,
-        isPost: Boolean
     ): Result<ApiResult> {
         awaitRateLimit()
 
         return runCatching {
-            val response: HttpResponse = if (isPost) {
-                httpClient.post(BASE_URL) {
-                    header("User-Agent", userAgent)
-                    password?.let { header("X-Password", it) }
-                    autologin?.let { header("X-Autologin", it) }
-                    pin?.let { header("X-Pin", it) }
-                    params.forEach { (key, value) -> parameter(key, value) }
+            val response: HttpResponse = httpClient.submitForm(
+                url = BASE_URL,
+                formParameters = Parameters.build {
+                    params.forEach { (key, value) -> append(key, value) }
                 }
-            } else {
-                httpClient.get(BASE_URL) {
-                    header("User-Agent", userAgent)
-                    password?.let { header("X-Password", it) }
-                    autologin?.let { header("X-Autologin", it) }
-                    pin?.let { header("X-Pin", it) }
-                    params.forEach { (key, value) -> parameter(key, value) }
-                }
+            ) {
+                header("User-Agent", userAgent)
+                password?.let { header("X-Password", it) }
+                autologin?.let { header("X-Autologin", it) }
+                pin?.let { header("X-Pin", it) }
             }
 
             updateRateLimit(response)
@@ -93,7 +79,43 @@ class NationStatesApiClient @Inject constructor(
             if (!response.status.isSuccess()) {
                 throw ApiException(
                     statusCode = response.status.value,
-                    message = "API error ${response.status.value}: ${response.bodyAsText()}"
+                    message = response.bodyAsText()
+                )
+            }
+
+            ApiResult(
+                body = response.bodyAsText(),
+                statusCode = response.status.value,
+                authHeaders = extractAuthHeaders(response),
+                rateLimit = extractRateLimit(response)
+            )
+        }
+    }
+
+    private suspend fun makeRequest(
+        userAgent: String,
+        params: Map<String, String>,
+        password: String?,
+        autologin: String?,
+        pin: String?
+    ): Result<ApiResult> {
+        awaitRateLimit()
+
+        return runCatching {
+            val response: HttpResponse = httpClient.get(BASE_URL) {
+                header("User-Agent", userAgent)
+                password?.let { header("X-Password", it) }
+                autologin?.let { header("X-Autologin", it) }
+                pin?.let { header("X-Pin", it) }
+                params.forEach { (key, value) -> parameter(key, value) }
+            }
+
+            updateRateLimit(response)
+
+            if (!response.status.isSuccess()) {
+                throw ApiException(
+                    statusCode = response.status.value,
+                    message = response.bodyAsText()
                 )
             }
 
@@ -152,4 +174,29 @@ class NationStatesApiClient @Inject constructor(
     }
 }
 
-class ApiException(val statusCode: Int, message: String) : Exception(message)
+class ApiException(val statusCode: Int, message: String) : Exception(sanitizeErrorMessage(message))
+
+/**
+ * Strips HTML from API error responses to produce a clean, user-readable message.
+ */
+private fun sanitizeErrorMessage(raw: String): String {
+    // If it doesn't look like HTML, return as-is
+    if (!raw.contains("<", ignoreCase = true)) return raw
+
+    // Extract text content by removing HTML tags and script/style blocks
+    val cleaned = raw
+        .replace(Regex("<script[^>]*>[\\s\\S]*?</script>", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("<style[^>]*>[\\s\\S]*?</style>", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("<[^>]+>"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+    // Return a reasonable length, or a fallback
+    return if (cleaned.isNotBlank() && cleaned.length <= 200) {
+        cleaned
+    } else if (cleaned.length > 200) {
+        cleaned.take(200).trim() + "..."
+    } else {
+        "API error $raw"
+    }
+}

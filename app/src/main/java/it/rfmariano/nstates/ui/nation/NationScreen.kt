@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,7 +31,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import it.rfmariano.nstates.data.model.NationData
@@ -47,9 +48,11 @@ fun NationScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
                 title = { Text("NStates") },
+                windowInsets = WindowInsets(0),
                 actions = {
                     TextButton(onClick = {
                         viewModel.logout()
@@ -290,7 +293,7 @@ private fun InfoRow(
 
 private fun formatPopulation(millions: Long): String {
     return when {
-        millions >= 1000 -> "${millions / 1000.0} billion"
+        millions >= 1000 -> String.format(Locale.getDefault(), "%.2f billion", millions / 1000.0)
         else -> "$millions million"
     }
 }

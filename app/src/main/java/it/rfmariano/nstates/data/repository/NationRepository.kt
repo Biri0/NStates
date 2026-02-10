@@ -1,9 +1,12 @@
 package it.rfmariano.nstates.data.repository
 
 import it.rfmariano.nstates.data.api.ApiException
+import it.rfmariano.nstates.data.api.IssueApi
 import it.rfmariano.nstates.data.api.NationApi
 import it.rfmariano.nstates.data.local.AuthLocalDataSource
 import it.rfmariano.nstates.data.local.SettingsDataSource
+import it.rfmariano.nstates.data.model.IssueResult
+import it.rfmariano.nstates.data.model.IssuesData
 import it.rfmariano.nstates.data.model.NationData
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -23,6 +26,7 @@ import javax.inject.Singleton
 @Singleton
 class NationRepository @Inject constructor(
     private val nationApi: NationApi,
+    private val issueApi: IssueApi,
     private val authLocal: AuthLocalDataSource,
     private val settings: SettingsDataSource
 ) {
@@ -98,14 +102,6 @@ class NationRepository @Inject constructor(
     }
 
     /**
-     * Fetch public nation data (no auth required).
-     */
-    suspend fun fetchNation(nationName: String): Result<NationData> {
-        val userAgent = settings.userAgent.first()
-        return nationApi.fetchNation(nationName, userAgent)
-    }
-
-    /**
      * Fetch the currently logged-in nation's data using stored auth.
      * Returns cached data if available to avoid redundant API calls
      * right after login.
@@ -129,5 +125,47 @@ class NationRepository @Inject constructor(
     fun logout() {
         cachedNation = null
         authLocal.clearAll()
+    }
+
+    /**
+     * Fetch the currently logged-in nation's issues.
+     * Uses stored auth tokens (PIN first, then autologin).
+     */
+    suspend fun fetchIssues(): Result<IssuesData> {
+        val nationName = authLocal.nationName
+            ?: return Result.failure(IllegalStateException("Not logged in"))
+        val userAgent = settings.userAgent.first()
+
+        return issueApi.fetchIssues(
+            nationName = nationName,
+            userAgent = userAgent,
+            pin = authLocal.pin,
+            autologin = authLocal.autologin
+        ).onSuccess { (_, apiResult) ->
+            apiResult.authHeaders.pin?.let { authLocal.pin = it }
+        }.map { (issuesData, _) -> issuesData }
+    }
+
+    /**
+     * Answer an issue by selecting an option.
+     *
+     * @param issueId The issue number
+     * @param optionId The option to select (0-based), or -1 to dismiss
+     */
+    suspend fun answerIssue(issueId: Int, optionId: Int): Result<IssueResult> {
+        val nationName = authLocal.nationName
+            ?: return Result.failure(IllegalStateException("Not logged in"))
+        val userAgent = settings.userAgent.first()
+
+        return issueApi.answerIssue(
+            nationName = nationName,
+            userAgent = userAgent,
+            issueId = issueId,
+            optionId = optionId,
+            pin = authLocal.pin,
+            autologin = authLocal.autologin
+        ).onSuccess { (_, apiResult) ->
+            apiResult.authHeaders.pin?.let { authLocal.pin = it }
+        }.map { (result, _) -> result }
     }
 }

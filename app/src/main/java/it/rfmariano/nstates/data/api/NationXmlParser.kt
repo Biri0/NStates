@@ -22,7 +22,7 @@ class NationXmlParser @Inject constructor() {
         val factory = XmlPullParserFactory.newInstance()
         factory.isNamespaceAware = false
         val parser = factory.newPullParser()
-        parser.setInput(StringReader(xml))
+        parser.setInput(StringReader(replaceHtmlEntities(xml)))
 
         var name = ""
         var fullName = ""

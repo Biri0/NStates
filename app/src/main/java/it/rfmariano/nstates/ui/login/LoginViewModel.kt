@@ -79,10 +79,6 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    fun resetState() {
-        _uiState.value = LoginUiState.Idle
-    }
-
     private fun formatError(error: Throwable): String {
         return when (error) {
             is ApiException -> when (error.statusCode) {
