@@ -7,4 +7,5 @@ object Routes {
     const val LOGIN = "login"
     const val NATION = "nation"
     const val ISSUES = "issues"
+    const val SETTINGS = "settings"
 }

@@ -21,7 +21,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,14 +32,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
+import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.SubcomposeAsyncImageContent
 import it.rfmariano.nstates.data.model.NationData
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NationScreen(
-    onLogout: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: NationViewModel = hiltViewModel()
 ) {
@@ -52,15 +51,7 @@ fun NationScreen(
         topBar = {
             TopAppBar(
                 title = { Text("NStates") },
-                windowInsets = WindowInsets(0),
-                actions = {
-                    TextButton(onClick = {
-                        viewModel.logout()
-                        onLogout()
-                    }) {
-                        Text("Logout")
-                    }
-                }
+                windowInsets = WindowInsets(0)
             )
         }
     ) { innerPadding ->
@@ -207,15 +198,19 @@ private fun NationHeader(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (nation.flagUrl.isNotBlank()) {
-            AsyncImage(
+            SubcomposeAsyncImage(
                 model = nation.flagUrl,
                 contentDescription = "${nation.name} flag",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 100.dp),
-                contentScale = ContentScale.Fit
+                contentScale = ContentScale.Fit,
+                success = {
+                    SubcomposeAsyncImageContent(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 100.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
             )
-            Spacer(modifier = Modifier.height(12.dp))
         }
 
         Text(

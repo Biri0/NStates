@@ -37,7 +37,4 @@ class NationViewModel @Inject constructor(
         }
     }
 
-    fun logout() {
-        repository.logout()
-    }
 }

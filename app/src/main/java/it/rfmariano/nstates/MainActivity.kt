@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Ballot
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -18,7 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -92,11 +92,6 @@ class MainActivity : ComponentActivity() {
                     NStatesNavHost(
                         navController = navController,
                         startDestination = startDestination,
-                        onLogout = {
-                            navController.navigate(Routes.LOGIN) {
-                                popUpTo(0) { inclusive = true }
-                            }
-                        },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -121,6 +116,11 @@ private fun NStatesBottomBar(
             label = "Issues",
             icon = Icons.Filled.Ballot,
             route = Routes.ISSUES
+        ),
+        BottomNavItem(
+            label = "Settings",
+            icon = Icons.Filled.Settings,
+            route = Routes.SETTINGS
         )
     )
 
