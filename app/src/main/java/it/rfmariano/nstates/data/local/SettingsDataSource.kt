@@ -8,7 +8,9 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,8 +35,28 @@ class SettingsDataSource @Inject constructor(
         }
     }
 
+    val initialPage: Flow<String> = context.dataStore.data
+        .map { prefs ->
+            prefs[KEY_INITIAL_PAGE] ?: DEFAULT_INITIAL_PAGE
+        }
+
+    suspend fun setInitialPage(route: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_INITIAL_PAGE] = route
+        }
+    }
+
+    /**
+     * Blocking read for use during Activity.onCreate before Compose is set up.
+     */
+    fun getInitialPageSync(): String = runBlocking {
+        initialPage.first()
+    }
+
     companion object {
         private val KEY_USER_AGENT = stringPreferencesKey("user_agent")
         private const val DEFAULT_USER_AGENT = "NStates Android Client (contact: rfmariano.it)"
+        private val KEY_INITIAL_PAGE = stringPreferencesKey("initial_page")
+        const val DEFAULT_INITIAL_PAGE = "nation"
     }
 }

@@ -14,6 +14,7 @@ import it.rfmariano.nstates.ui.settings.SettingsScreen
 fun NStatesNavHost(
     navController: NavHostController,
     startDestination: String,
+    initialPageRoute: String,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -24,7 +25,7 @@ fun NStatesNavHost(
         composable(Routes.LOGIN) {
             LoginScreen(
                 onLoginSuccess = {
-                    navController.navigate(Routes.NATION) {
+                    navController.navigate(initialPageRoute) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
                     }
                 }

@@ -24,6 +24,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import it.rfmariano.nstates.data.local.AuthLocalDataSource
+import it.rfmariano.nstates.data.local.SettingsDataSource
 import it.rfmariano.nstates.ui.navigation.NStatesNavHost
 import it.rfmariano.nstates.ui.navigation.Routes
 import it.rfmariano.nstates.ui.theme.NStatesTheme
@@ -44,15 +45,21 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var authLocal: AuthLocalDataSource
 
+    @Inject
+    lateinit var settingsDataSource: SettingsDataSource
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // If user has valid tokens, go straight to nation screen.
+        // Read the user's preferred initial page (persisted in DataStore).
+        val initialPageRoute = settingsDataSource.getInitialPageSync()
+
+        // If user has valid tokens, go to their preferred initial page.
         // If user has a stored nation name but expired tokens, go to login
         // (LoginViewModel will pre-fill the nation name).
         val startDestination = if (authLocal.isLoggedIn) {
-            Routes.NATION
+            initialPageRoute
         } else {
             Routes.LOGIN
         }
@@ -92,6 +99,7 @@ class MainActivity : ComponentActivity() {
                     NStatesNavHost(
                         navController = navController,
                         startDestination = startDestination,
+                        initialPageRoute = initialPageRoute,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
