@@ -1,5 +1,6 @@
 package it.rfmariano.nstates.ui.issues
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -102,6 +103,7 @@ fun IssuesScreen(
 
     val currentIssue = selectedIssue
     if (currentIssue != null) {
+        BackHandler(onBack = viewModel::clearSelectedIssue)
         IssueDetailContent(
             issue = currentIssue,
             onBack = viewModel::clearSelectedIssue,
