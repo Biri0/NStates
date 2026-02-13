@@ -43,8 +43,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -380,7 +384,7 @@ private fun IssueDetailContent(
 
             // Description text
             Text(
-                text = issue.text,
+                text = italicizeHtmlItalics(issue.text),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -464,7 +468,7 @@ private fun OptionCard(
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = option.text,
+                text = italicizeHtmlItalics(option.text),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.weight(1f)
@@ -493,7 +497,7 @@ private fun ConfirmAnswerDialog(
                     Text("Are you sure you want to select this option?")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = optionText,
+                        text = italicizeHtmlItalics(optionText),
                         style = MaterialTheme.typography.bodyMedium,
                         fontStyle = FontStyle.Italic,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -569,6 +573,28 @@ private fun ErrorDialog(
     )
 }
 
+private fun italicizeHtmlItalics(text: String): AnnotatedString {
+    if (!text.contains("<i>", ignoreCase = true)) return AnnotatedString(text)
+
+    val regex = Regex("<i>(.*?)</i>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+    return buildAnnotatedString {
+        var lastIndex = 0
+        regex.findAll(text).forEach { match ->
+            val start = match.range.first
+            if (start > lastIndex) {
+                append(text.substring(lastIndex, start))
+            }
+            withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                append(match.groupValues[1])
+            }
+            lastIndex = match.range.last + 1
+        }
+        if (lastIndex < text.length) {
+            append(text.substring(lastIndex))
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ResultBottomSheet(
@@ -612,7 +638,7 @@ private fun ResultContent(
         // Description
         if (result.description.isNotBlank()) {
             Text(
-                text = result.description,
+                text = italicizeHtmlItalics(result.description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -622,7 +648,7 @@ private fun ResultContent(
         // Error
         if (result.error.isNotBlank()) {
             Text(
-                text = result.error,
+                text = italicizeHtmlItalics(result.error),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error
             )
