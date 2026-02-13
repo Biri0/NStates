@@ -72,8 +72,10 @@ class MainActivity : ComponentActivity() {
         // If user has valid tokens, go to their preferred initial page.
         // If user has a stored nation name but expired tokens, go to login
         // (LoginViewModel will pre-fill the nation name).
+        val requestedRoute = intent?.getStringExtra(EXTRA_ROUTE)
+            ?.takeIf { it == Routes.NATION || it == Routes.ISSUES || it == Routes.SETTINGS }
         val startDestination = if (authLocal.isLoggedIn) {
-            initialPageRoute
+            requestedRoute ?: initialPageRoute
         } else {
             Routes.LOGIN
         }
@@ -124,6 +126,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_ROUTE = "extra_route"
     }
 }
 

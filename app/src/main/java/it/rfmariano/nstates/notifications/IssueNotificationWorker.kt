@@ -2,7 +2,9 @@ package it.rfmariano.nstates.notifications
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -11,10 +13,12 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import it.rfmariano.nstates.MainActivity
 import it.rfmariano.nstates.R
 import it.rfmariano.nstates.data.local.AuthLocalDataSource
 import it.rfmariano.nstates.data.local.SettingsDataSource
 import it.rfmariano.nstates.data.repository.NationRepository
+import it.rfmariano.nstates.ui.navigation.Routes
 import kotlinx.coroutines.flow.first
 
 @HiltWorker
@@ -83,6 +87,7 @@ class IssueNotificationWorker @AssistedInject constructor(
             .setContentText(content)
             .setStyle(NotificationCompat.BigTextStyle().bigText(content))
             .setAutoCancel(true)
+            .setContentIntent(createContentIntent())
             .build()
 
         NotificationManagerCompat.from(applicationContext)
@@ -103,6 +108,19 @@ class IssueNotificationWorker @AssistedInject constructor(
             NotificationManager.IMPORTANCE_DEFAULT
         )
         manager.createNotificationChannel(channel)
+    }
+
+    private fun createContentIntent(): PendingIntent {
+        val intent = Intent(applicationContext, MainActivity::class.java).apply {
+            putExtra(MainActivity.EXTRA_ROUTE, Routes.ISSUES)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        return PendingIntent.getActivity(
+            applicationContext,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     companion object {
