@@ -2,8 +2,8 @@
 
 ## Project Overview
 
-NStates is an Android client for the NationStates API, built with Kotlin and Jetpack
-Compose (Material 3). Single-module Gradle project (`app`).
+Android client for the NationStates API, built with Kotlin + Jetpack Compose
+(Material 3). Single-module Gradle project (`app`).
 
 **Package:** `it.rfmariano.nstates`
 **Min SDK:** 26 (Android 8.0) | **Target/Compile SDK:** 36
@@ -12,35 +12,31 @@ Compose (Material 3). Single-module Gradle project (`app`).
 
 ## Important: Do NOT Commit
 
-**Never create git commits unless the user explicitly asks you to.** The user wants to
-review all code changes before committing. Just make the edits and let the user know
+Never create git commits unless the user explicitly asks you to. The user wants
+to review all code changes before committing. Just make the edits and report
 what changed.
+
+## Mandatory Execution Rules (Agent Behavior)
+
+1. **Run tests before ending**: always execute tests before your final response.
+   Only run tests; do not compile or assemble. Goal: code remains compilable in
+   release mode. If tests are too slow or require devices, say what you ran and
+   why.
+2. **When you have a suggestion or a next step**: do not stop writing. Use the
+   question tool. Always ask what to do next (or ask the specific question you
+   need). This applies to every response.
 
 ## NationStates API
 
-The NationStates API reference is at **`api_reference.md`** in the project root. Consult
-it when implementing any feature that interacts with the API. Key points:
+The API reference is at `api_reference.md` in the project root. Use it whenever
+implementing API features. Key points:
 - Base URL: `https://www.nationstates.net/cgi-bin/api.cgi`
-- XML responses parsed with Android's `XmlPullParser` (no third-party XML library)
-- Auth flow: `X-Password` -> receive `X-Pin` + `X-Autologin` -> use `X-Pin` for subsequent requests
-- Rate limit: 50 requests / 30 seconds. Respect `RateLimit-Remaining` and `Retry-After` headers
+- XML responses parsed with `XmlPullParser` (no third-party XML library)
+- Auth flow: `X-Password` -> receive `X-Pin` + `X-Autologin` -> use `X-Pin`
+- Rate limit: 50 requests / 30 seconds; respect `RateLimit-Remaining` and
+  `Retry-After` headers
 - Every request must include a `User-Agent` header
 - Private commands use a two-step prepare/execute flow with tokens
-
-## Current Implementation Status
-
-**Working features:** Login (with session resume via PIN/autologin), Nation info display
-(flag, overview, freedoms, economy, government, details), Issues list with full
-answer/dismiss flow and result display, Settings screen with logout, Bottom navigation.
-
-**Architecture wired:** Hilt DI, Ktor HTTP client, EncryptedSharedPreferences for auth,
-DataStore for settings, Coil for image loading, Compose Navigation with 4 destinations.
-
-**Declared but unused:** Room (plugin + dependencies exist, but no entities/DAOs/database).
-Ktor content-negotiation (declared but all parsing is manual XML).
-
-**Not yet implemented:** Region browsing, World Assembly, Telegrams, Nation search,
-offline caching (Room), pull-to-refresh, user agent configuration UI, real tests.
 
 ## Build Commands
 
@@ -141,6 +137,12 @@ Coil 3.3.0, Room 2.8.4, DataStore 1.2.0, Security-Crypto 1.1.0.
 - **Named arguments** for Composable function calls
 - **No wildcard imports** (`import foo.bar.Baz`, not `foo.bar.*`)
 - Imports ordered: Android SDK, AndroidX, third-party, project-internal
+- Keep files focused: one public class per file when possible
+
+### Imports & File Organization
+- Group imports by top-level package with a blank line between groups
+- Alphabetize imports within each group
+- Avoid unused imports; prefer explicit imports over aliasing
 
 ### Naming Conventions
 - **Packages:** lowercase dotted (`it.rfmariano.nstates.ui.theme`)
@@ -148,28 +150,38 @@ Coil 3.3.0, Room 2.8.4, DataStore 1.2.0, Security-Crypto 1.1.0.
 - **Composable functions:** PascalCase (`NationCard`, `IssueListScreen`)
 - **Non-composable functions:** camelCase (`fetchNation`)
 - **Properties/variables:** camelCase (`nationName`, `isLoading`)
-- **Constants:** PascalCase for theme values (`Purple80`), UPPER_SNAKE_CASE for true constants
-- **Test methods:** `methodOrBehavior_condition_expectedResult` (`fetchNation_networkError_showsErrorState`)
+- **Constants:** PascalCase for theme values, UPPER_SNAKE_CASE for true constants
+- **Test methods:** `methodOrBehavior_condition_expectedResult`
 - **Preview functions:** suffixed with `Preview` (`NationCardPreview`)
 
+### Types & API Boundaries
+- Explicit types on public API boundaries; inference for locals/privates
+- Use `sealed class`/`sealed interface` for UI state
+- Favor `Result<T>` or sealed result types for fallible operations
+- Prefer immutable data classes; use `val` unless mutation is required
+
+### Error Handling
+- Never silently swallow exceptions — log or propagate
+- `runCatching` for API calls when you must capture errors
+- ViewModels handle errors and expose state; UI renders state only
+- User-facing errors via Compose state, not imperative Toast/Snackbar
+- Include actionable error messages for network and parsing failures
+
+### Coroutines & Flows
+- Use `StateFlow` for UI state; collect with lifecycle-aware APIs
+- Repository methods are `suspend` for one-shot, `Flow` for streams
+- Avoid `GlobalScope`; use `viewModelScope` or injected scopes
+- Prefer structured concurrency and cancellation-friendly APIs
+
 ### Compose Conventions
-- Composables accepting layout config must take `modifier: Modifier = Modifier`
+- Composables accepting layout config take `modifier: Modifier = Modifier`
 - Pass `modifier` as the last non-trailing-lambda parameter
-- Root layout: `Scaffold` with `Modifier.fillMaxSize()`, pass `innerPadding` to content
+- Root layout: `Scaffold` + `Modifier.fillMaxSize()`, apply `innerPadding`
 - Wrap content in `NStatesTheme` at Activity level; use `enableEdgeToEdge()`
 - Previews: `@Preview(showBackground = true)` wrapped in `NStatesTheme`
 
-### Types & Error Handling
-- Explicit types on public API boundaries; type inference for locals/privates
-- Prefer `StateFlow` over `LiveData`; `sealed class`/`sealed interface` for UI state
-- Data classes for API response models
-- `Result<T>` or sealed classes for fallible operations
-- Never silently swallow exceptions — log or propagate
-- `runCatching` for API calls; coroutine exception handlers in ViewModels
-- User-facing errors via Compose state, not imperative Toast/Snackbar
-
 ### Architecture
-- **MVVM:** Screen (Composable) -> ViewModel -> Repository -> API / Local Data Source
+- **MVVM:** Composable -> ViewModel -> Repository -> API / Local Data Source
 - ViewModels expose `StateFlow<UiState>` collected in Composables
 - Repository is single source of truth; suspend for one-shot, Flow for streams
 - Keep Composables stateless — hoist state to ViewModels
@@ -183,9 +195,14 @@ Coil 3.3.0, Room 2.8.4, DataStore 1.2.0, Security-Crypto 1.1.0.
 - File naming: `{ClassName}Test.kt`; prefer fakes over mocks
 - Currently only placeholder tests exist — real tests are needed
 
-## Useful Notes
+## Notes for Agents
 
 - Use `./gradlew` (wrapper), not system Gradle
-- All commands run from project root (`/home/student/AndroidStudioProjects/NStates`)
-- No remote git repository configured; no CI/CD — validate with `./gradlew check`
-- UI strings are currently hardcoded in Kotlin (not externalized to `strings.xml`)
+- All commands run from project root
+- No remote git repository configured; validate with `./gradlew check`
+- UI strings are currently hardcoded in Kotlin (not externalized to strings.xml)
+
+## Cursor and Copilot Rules
+
+- No `.cursor/rules/`, `.cursorrules`, or `.github/copilot-instructions.md` found
+  at the time of writing. If any are added, follow them.
