@@ -22,32 +22,44 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.widget.Toast
 import it.rfmariano.nstates.ui.navigation.Routes
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onLogout: () -> Unit,
+    onAddNation: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var lastNationName by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
@@ -67,19 +79,40 @@ fun SettingsScreen(
                 }
             }
             is SettingsUiState.Ready -> {
+                if (lastNationName == null) {
+                    lastNationName = state.nationName
+                } else if (!lastNationName.equals(state.nationName, ignoreCase = true)) {
+                    Toast
+                        .makeText(context, "Switched to ${state.nationName}", Toast.LENGTH_SHORT)
+                        .show()
+                    lastNationName = state.nationName
+                }
                 SettingsContent(
                     nationName = state.nationName,
+                    accounts = state.accounts,
                     initialPage = state.initialPage,
                     onInitialPageChange = { viewModel.setInitialPage(it) },
-                    onLogout = {
-                        viewModel.logout()
-                        onLogout()
+                    onAccountSelected = {
+                        viewModel.switchAccount(it)
+                    },
+                    onAddNation = onAddNation,
+                    onRemoveAccount = { accountName ->
+                        val remaining = viewModel.removeAccount(accountName)
+                        if (remaining == 0) {
+                            onLogout()
+                        } else {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Removed $accountName")
+                            }
+                        }
                     },
                     modifier = Modifier.padding(innerPadding)
                 )
             }
         }
     }
+
+
 }
 
 /**
@@ -94,9 +127,12 @@ private val initialPageOptions = listOf(
 @Composable
 private fun SettingsContent(
     nationName: String,
+    accounts: List<String>,
     initialPage: String,
     onInitialPageChange: (String) -> Unit,
-    onLogout: () -> Unit,
+    onAccountSelected: (String) -> Unit,
+    onAddNation: () -> Unit,
+    onRemoveAccount: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -119,11 +155,95 @@ private fun SettingsContent(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    text = nationName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                var accountExpanded by remember { mutableStateOf(false) }
+                var showRemoveConfirm by remember { mutableStateOf(false) }
+                val selectedAccount = accounts.firstOrNull { it.equals(nationName, ignoreCase = true) }
+                    ?: nationName
+                val canRemoveAccount = accounts.size > 1 && selectedAccount.isNotBlank()
+                val accountLabel = selectedAccount.ifBlank { "Select account" }
+
+                ExposedDropdownMenuBox(
+                    expanded = accountExpanded,
+                    onExpandedChange = { accountExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = accountLabel,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = accountExpanded)
+                        },
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = accountExpanded,
+                        onDismissRequest = { accountExpanded = false }
+                    ) {
+                        accounts.sortedBy { it.lowercase() }.forEach { account ->
+                            DropdownMenuItem(
+                                text = { Text(account) },
+                                onClick = {
+                                    accountExpanded = false
+                                    onAccountSelected(account)
+                                },
+                                contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = onAddNation,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Add nation")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = { showRemoveConfirm = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = canRemoveAccount,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Remove account")
+                }
+
+                if (showRemoveConfirm && canRemoveAccount) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { showRemoveConfirm = false },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    showRemoveConfirm = false
+                                    onRemoveAccount(selectedAccount)
+                                }
+                            ) {
+                                Text("Remove")
+                            }
+                        },
+                        dismissButton = {
+                            Button(
+                                onClick = { showRemoveConfirm = false }
+                            ) {
+                                Text("Cancel")
+                            }
+                        },
+                        title = { Text("Remove account") },
+                        text = { Text("Remove $selectedAccount from this device?") }
+                    )
+                }
             }
         }
 
@@ -209,17 +329,5 @@ private fun SettingsContent(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-
-        // Logout button
-        Button(
-            onClick = onLogout,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError
-            )
-        ) {
-            Text("Logout")
-        }
     }
 }

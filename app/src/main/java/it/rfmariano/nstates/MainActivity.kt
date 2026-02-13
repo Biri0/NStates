@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
                 val currentRoute = navBackStackEntry?.destination?.route
 
                 // Only show bottom nav when logged in (not on login screen)
-                val isLoggedIn = currentRoute != Routes.LOGIN
+                val isLoggedIn = currentRoute != Routes.LOGIN && currentRoute != Routes.LOGIN_ADD
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -114,6 +114,11 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         startDestination = startDestination,
                         initialPageRoute = initialPageRoute,
+                        onAddNation = {
+                            navController.navigate(Routes.LOGIN_ADD) {
+                                launchSingleTop = true
+                            }
+                        },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }

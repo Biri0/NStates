@@ -8,6 +8,9 @@ import it.rfmariano.nstates.data.local.SettingsDataSource
 import it.rfmariano.nstates.data.model.IssueResult
 import it.rfmariano.nstates.data.model.IssuesData
 import it.rfmariano.nstates.data.model.NationData
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,6 +37,9 @@ class NationRepository @Inject constructor(
     @Volatile
     private var cachedNation: NationData? = null
 
+    private val _activeNation = MutableStateFlow(authLocal.nationName)
+    val activeNation: StateFlow<String?> = _activeNation.asStateFlow()
+
     /**
      * Login with nation name and password.
      * Persists autologin and PIN tokens on success.
@@ -48,8 +54,12 @@ class NationRepository @Inject constructor(
             password = password
         ).onSuccess { (nation, apiResult) ->
             authLocal.nationName = nationName
-            apiResult.authHeaders.autologin?.let { authLocal.autologin = it }
-            apiResult.authHeaders.pin?.let { authLocal.pin = it }
+            _activeNation.value = nationName
+            authLocal.upsertAccount(
+                nationName = nationName,
+                pin = apiResult.authHeaders.pin,
+                autologin = apiResult.authHeaders.autologin
+            )
             cachedNation = nation
         }.map { (nation, _) -> nation }
     }
@@ -73,7 +83,11 @@ class NationRepository @Inject constructor(
             )
             if (result.isSuccess) {
                 result.getOrNull()?.second?.authHeaders?.let { headers ->
-                    headers.pin?.let { authLocal.pin = it }
+                    authLocal.upsertAccount(
+                        nationName = nationName,
+                        pin = headers.pin,
+                        autologin = headers.autologin
+                    )
                 }
                 val nation = result.map { it.first }
                 nation.getOrNull()?.let { cachedNation = it }
@@ -95,8 +109,11 @@ class NationRepository @Inject constructor(
             userAgent = userAgent,
             autologin = autologin
         ).onSuccess { (nation, apiResult) ->
-            apiResult.authHeaders.pin?.let { authLocal.pin = it }
-            apiResult.authHeaders.autologin?.let { authLocal.autologin = it }
+            authLocal.upsertAccount(
+                nationName = nationName,
+                pin = apiResult.authHeaders.pin,
+                autologin = apiResult.authHeaders.autologin
+            )
             cachedNation = nation
         }.map { (nation, _) -> nation }
     }
@@ -118,13 +135,42 @@ class NationRepository @Inject constructor(
         return resumeSession()
     }
 
+    fun clearCachedNation() {
+        cachedNation = null
+    }
+
     fun isLoggedIn(): Boolean = authLocal.isLoggedIn
 
     fun getCurrentNationName(): String? = authLocal.nationName
 
+    fun getAccounts(): List<AuthLocalDataSource.AccountAuth> = authLocal.getAccounts()
+
+    fun removeAccount(nationName: String): Int {
+        val wasActive = authLocal.nationName?.equals(nationName, ignoreCase = true) == true
+        authLocal.removeAccount(nationName)
+        cachedNation = null
+        val remaining = authLocal.getAccounts()
+        if (wasActive) {
+            if (remaining.isNotEmpty()) {
+                authLocal.setActiveNation(remaining.first().nationName)
+            } else {
+                authLocal.clearAll()
+            }
+        }
+        _activeNation.value = authLocal.nationName
+        return remaining.size
+    }
+
+    fun switchAccount(nationName: String) {
+        cachedNation = null
+        authLocal.setActiveNation(nationName)
+        _activeNation.value = authLocal.nationName
+    }
+
     fun logout() {
         cachedNation = null
         authLocal.clearAll()
+        _activeNation.value = null
     }
 
     /**

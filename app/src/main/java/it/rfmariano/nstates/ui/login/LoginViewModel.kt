@@ -28,7 +28,11 @@ class LoginViewModel @Inject constructor(
     init {
         // Pre-fill nation name if the user has logged in before
         repository.getCurrentNationName()?.let { _nationName.value = it }
-        tryResumeSession()
+        if (_nationName.value.isBlank()) {
+            repository.getAccounts().firstOrNull()?.let { account ->
+                _nationName.value = account.nationName
+            }
+        }
     }
 
     fun onNationNameChanged(name: String) {
@@ -53,6 +57,7 @@ class LoginViewModel @Inject constructor(
             repository.login(name, pass)
                 .onSuccess { nation ->
                     _password.value = "" // Clear password from memory
+                    repository.switchAccount(name)
                     _uiState.value = LoginUiState.Success(nation)
                 }
                 .onFailure { error ->
@@ -61,7 +66,7 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    private fun tryResumeSession() {
+    fun tryResumeSession() {
         if (!repository.isLoggedIn()) return
 
         viewModelScope.launch {

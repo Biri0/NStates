@@ -15,6 +15,7 @@ fun NStatesNavHost(
     navController: NavHostController,
     startDestination: String,
     initialPageRoute: String,
+    onAddNation: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -28,7 +29,19 @@ fun NStatesNavHost(
                     navController.navigate(initialPageRoute) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
                     }
-                }
+                },
+                onResumeSession = true
+            )
+        }
+
+        composable(Routes.LOGIN_ADD) {
+            LoginScreen(
+                onLoginSuccess = {
+                    navController.navigate(initialPageRoute) {
+                        popUpTo(Routes.LOGIN_ADD) { inclusive = true }
+                    }
+                },
+                onResumeSession = false
             )
         }
 
@@ -46,7 +59,8 @@ fun NStatesNavHost(
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(0) { inclusive = true }
                     }
-                }
+                },
+                onAddNation = onAddNation
             )
         }
     }

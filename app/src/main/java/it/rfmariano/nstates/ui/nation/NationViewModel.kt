@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import it.rfmariano.nstates.data.repository.NationRepository
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,22 +22,33 @@ class NationViewModel @Inject constructor(
     val uiState: StateFlow<NationUiState> = _uiState.asStateFlow()
 
     init {
-        loadNation()
+        viewModelScope.launch {
+            repository.activeNation
+                .filterNotNull()
+                .distinctUntilChanged()
+                .collectLatest {
+                    loadNationInternal()
+                }
+        }
     }
 
     fun loadNation() {
         viewModelScope.launch {
-            _uiState.value = NationUiState.Loading
-            repository.fetchCurrentNation()
-                .onSuccess { nation ->
-                    _uiState.value = NationUiState.Success(nation)
-                }
-                .onFailure { error ->
-                    _uiState.value = NationUiState.Error(
-                        error.message ?: "Failed to load nation data"
-                    )
-                }
+            loadNationInternal()
         }
+    }
+
+    private suspend fun loadNationInternal() {
+        _uiState.value = NationUiState.Loading
+        repository.fetchCurrentNation()
+            .onSuccess { nation ->
+                _uiState.value = NationUiState.Success(nation)
+            }
+            .onFailure { error ->
+                _uiState.value = NationUiState.Error(
+                    error.message ?: "Failed to load nation data"
+                )
+            }
     }
 
 }

@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import it.rfmariano.nstates.data.model.Issue
 import it.rfmariano.nstates.data.repository.NationRepository
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,25 +30,36 @@ class IssuesViewModel @Inject constructor(
     val selectedIssue: StateFlow<Issue?> = _selectedIssue.asStateFlow()
 
     init {
-        loadIssues()
+        viewModelScope.launch {
+            repository.activeNation
+                .filterNotNull()
+                .distinctUntilChanged()
+                .collectLatest {
+                    loadIssuesInternal()
+                }
+        }
     }
 
     fun loadIssues() {
         viewModelScope.launch {
-            _uiState.value = IssuesUiState.Loading
-            repository.fetchIssues()
-                .onSuccess { issuesData ->
-                    _uiState.value = IssuesUiState.Success(
-                        issues = issuesData.issues,
-                        nextIssueTime = issuesData.nextIssueTime
-                    )
-                }
-                .onFailure { error ->
-                    _uiState.value = IssuesUiState.Error(
-                        formatErrorMessage(error)
-                    )
-                }
+            loadIssuesInternal()
         }
+    }
+
+    private suspend fun loadIssuesInternal() {
+        _uiState.value = IssuesUiState.Loading
+        repository.fetchIssues()
+            .onSuccess { issuesData ->
+                _uiState.value = IssuesUiState.Success(
+                    issues = issuesData.issues,
+                    nextIssueTime = issuesData.nextIssueTime
+                )
+            }
+            .onFailure { error ->
+                _uiState.value = IssuesUiState.Error(
+                    formatErrorMessage(error)
+                )
+            }
     }
 
     fun selectIssue(issue: Issue) {

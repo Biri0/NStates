@@ -36,12 +36,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     modifier: Modifier = Modifier,
+    onResumeSession: Boolean = true,
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val nationName by viewModel.nationName.collectAsStateWithLifecycle()
     val password by viewModel.password.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
+
+    LaunchedEffect(onResumeSession) {
+        if (onResumeSession) {
+            viewModel.tryResumeSession()
+        }
+    }
 
     LaunchedEffect(uiState) {
         if (uiState is LoginUiState.Success) {
