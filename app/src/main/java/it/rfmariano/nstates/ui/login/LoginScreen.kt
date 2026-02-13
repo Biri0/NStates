@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -21,6 +22,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -37,6 +41,7 @@ fun LoginScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val nationName by viewModel.nationName.collectAsStateWithLifecycle()
     val password by viewModel.password.collectAsStateWithLifecycle()
+    val uriHandler = LocalUriHandler.current
 
     LaunchedEffect(uiState) {
         if (uiState is LoginUiState.Success) {
@@ -115,6 +120,30 @@ fun LoginScreen(
                     Text("Login")
                 }
             }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = "Don't have a nation?",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Create one on NationStates",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    textAlign = TextAlign.Center,
+                    textDecoration = TextDecoration.Underline
+                ),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { uriHandler.openUri("https://www.nationstates.net/page=create_nation") }
+            )
 
             if (uiState is LoginUiState.Error) {
                 Spacer(modifier = Modifier.height(16.dp))
