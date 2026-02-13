@@ -193,6 +193,28 @@ class NationRepository @Inject constructor(
     }
 
     /**
+     * Fetch issues for a specific account without changing the active nation.
+     */
+    suspend fun fetchIssuesForAccount(
+        nationName: String,
+        pin: String?,
+        autologin: String?
+    ): Result<IssuesData> {
+        val userAgent = settings.userAgent.first()
+
+        return issueApi.fetchIssues(
+            nationName = nationName,
+            userAgent = userAgent,
+            pin = pin,
+            autologin = autologin
+        ).onSuccess { (_, apiResult) ->
+            apiResult.authHeaders.pin?.let { newPin ->
+                authLocal.upsertAccount(nationName = nationName, pin = newPin, autologin = null)
+            }
+        }.map { (issuesData, _) -> issuesData }
+    }
+
+    /**
      * Answer an issue by selecting an option.
      *
      * @param issueId The issue number

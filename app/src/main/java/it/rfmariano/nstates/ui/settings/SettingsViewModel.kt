@@ -6,10 +6,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import it.rfmariano.nstates.data.local.SettingsDataSource
 import it.rfmariano.nstates.data.repository.NationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -24,9 +25,20 @@ class SettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val initialPage = settingsDataSource.initialPage.first()
-            repository.activeNation.collectLatest { activeNation ->
-                updateState(activeNation = activeNation, initialPage = initialPage)
+            combine(
+                repository.activeNation,
+                settingsDataSource.initialPage,
+                settingsDataSource.issueNotificationsEnabled,
+                settingsDataSource.issueNotificationAccounts
+            ) { activeNation, initialPage, notificationsEnabled, notificationAccounts ->
+                SettingsSnapshot(
+                    activeNation = activeNation,
+                    initialPage = initialPage,
+                    notificationsEnabled = notificationsEnabled,
+                    notificationAccounts = notificationAccounts
+                )
+            }.collectLatest { snapshot ->
+                updateState(snapshot)
             }
         }
     }
@@ -50,22 +62,55 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun removeAccount(nationName: String): Int {
+        viewModelScope.launch {
+            settingsDataSource.removeIssueNotificationAccount(nationName)
+        }
         val remaining = repository.removeAccount(nationName)
         val current = _uiState.value
         if (current is SettingsUiState.Ready) {
-            updateState(activeNation = repository.getCurrentNationName(), initialPage = current.initialPage)
+            val normalized = SettingsDataSource.normalizeNationKey(nationName)
+            val updatedNotificationAccounts = current.issueNotificationAccounts - normalized
+            updateState(
+                SettingsSnapshot(
+                    activeNation = repository.getCurrentNationName(),
+                    initialPage = current.initialPage,
+                    notificationsEnabled = current.issueNotificationsEnabled,
+                    notificationAccounts = updatedNotificationAccounts
+                )
+            )
         }
         return remaining
     }
 
-    private fun updateState(activeNation: String?, initialPage: String) {
+    fun setIssueNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsDataSource.setIssueNotificationsEnabled(enabled)
+        }
+    }
+
+    fun setIssueNotificationAccount(nationName: String, enabled: Boolean) {
+        viewModelScope.launch {
+            settingsDataSource.setIssueNotificationAccount(nationName, enabled)
+        }
+    }
+
+    private fun updateState(snapshot: SettingsSnapshot) {
         val accounts = repository.getAccounts()
             .map { it.nationName }
             .sortedBy { it.lowercase() }
         _uiState.value = SettingsUiState.Ready(
-            nationName = activeNation ?: "",
+            nationName = snapshot.activeNation ?: "",
             accounts = accounts,
-            initialPage = initialPage
+            initialPage = snapshot.initialPage,
+            issueNotificationsEnabled = snapshot.notificationsEnabled,
+            issueNotificationAccounts = snapshot.notificationAccounts
         )
     }
+
+    private data class SettingsSnapshot(
+        val activeNation: String?,
+        val initialPage: String,
+        val notificationsEnabled: Boolean,
+        val notificationAccounts: Set<String>
+    )
 }

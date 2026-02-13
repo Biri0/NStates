@@ -1,7 +1,15 @@
 package it.rfmariano.nstates.ui.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,14 +24,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -35,11 +44,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import android.widget.Toast
+import it.rfmariano.nstates.data.local.SettingsDataSource
 import it.rfmariano.nstates.ui.navigation.Routes
+import it.rfmariano.nstates.notifications.IssueNotificationScheduler
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,6 +66,27 @@ fun SettingsScreen(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     var lastNationName by remember { mutableStateOf<String?>(null) }
+    var pendingEnableNotifications by remember { mutableStateOf(false) }
+    var pendingEnableNation by remember { mutableStateOf<String?>(null) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (pendingEnableNotifications) {
+            pendingEnableNotifications = false
+            if (granted) {
+                viewModel.setIssueNotificationsEnabled(true)
+                IssueNotificationScheduler.schedule(context)
+                pendingEnableNation?.takeIf { it.isNotBlank() }?.let { nation ->
+                    viewModel.setIssueNotificationAccount(nation, true)
+                }
+            } else {
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Notification permission required")
+                }
+            }
+            pendingEnableNation = null
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -87,13 +119,53 @@ fun SettingsScreen(
                         .show()
                     lastNationName = state.nationName
                 }
+                if (!state.issueNotificationsEnabled) {
+                    pendingEnableNotifications = false
+                }
                 SettingsContent(
                     nationName = state.nationName,
                     accounts = state.accounts,
                     initialPage = state.initialPage,
+                    issueNotificationsEnabled = state.issueNotificationsEnabled,
+                    issueNotificationAccounts = state.issueNotificationAccounts,
                     onInitialPageChange = { viewModel.setInitialPage(it) },
                     onAccountSelected = {
                         viewModel.switchAccount(it)
+                    },
+                    onIssueNotificationsToggle = { enabled ->
+                        if (!enabled) {
+                            viewModel.setIssueNotificationsEnabled(false)
+                            IssueNotificationScheduler.cancel(context)
+                            return@SettingsContent
+                        }
+
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                            viewModel.setIssueNotificationsEnabled(true)
+                            IssueNotificationScheduler.schedule(context)
+                            return@SettingsContent
+                        }
+
+                        val hasPermission = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        if (hasPermission) {
+                            viewModel.setIssueNotificationsEnabled(true)
+                            IssueNotificationScheduler.schedule(context)
+                            if (state.issueNotificationAccounts.isEmpty()) {
+                                state.nationName.takeIf { it.isNotBlank() }?.let { nation ->
+                                    viewModel.setIssueNotificationAccount(nation, true)
+                                }
+                            }
+                        } else {
+                            pendingEnableNotifications = true
+                            pendingEnableNation = state.nationName
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    },
+                    onIssueNotificationAccountToggle = { account, enabled ->
+                        viewModel.setIssueNotificationAccount(account, enabled)
                     },
                     onAddNation = onAddNation,
                     onRemoveAccount = { accountName ->
@@ -129,8 +201,12 @@ private fun SettingsContent(
     nationName: String,
     accounts: List<String>,
     initialPage: String,
+    issueNotificationsEnabled: Boolean,
+    issueNotificationAccounts: Set<String>,
     onInitialPageChange: (String) -> Unit,
     onAccountSelected: (String) -> Unit,
+    onIssueNotificationsToggle: (Boolean) -> Unit,
+    onIssueNotificationAccountToggle: (String, Boolean) -> Unit,
     onAddNation: () -> Unit,
     onRemoveAccount: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -297,6 +373,68 @@ private fun SettingsContent(
                                     expanded = false
                                 },
                                 contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Notifications card
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Issue Notifications",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Notify when new issues appear",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (issueNotificationsEnabled) "Enabled" else "Disabled",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Switch(
+                        checked = issueNotificationsEnabled,
+                        onCheckedChange = onIssueNotificationsToggle
+                    )
+                }
+
+                if (issueNotificationsEnabled) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Notify for",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    accounts.sortedBy { it.lowercase() }.forEach { account ->
+                        val isEnabled = issueNotificationAccounts.contains(
+                            SettingsDataSource.normalizeNationKey(account)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = account, style = MaterialTheme.typography.bodyMedium)
+                            Switch(
+                                checked = isEnabled,
+                                onCheckedChange = { enabled ->
+                                    onIssueNotificationAccountToggle(account, enabled)
+                                }
                             )
                         }
                     }
