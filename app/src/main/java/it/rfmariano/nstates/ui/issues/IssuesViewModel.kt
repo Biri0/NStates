@@ -1,10 +1,13 @@
 package it.rfmariano.nstates.ui.issues
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import it.rfmariano.nstates.data.model.Issue
 import it.rfmariano.nstates.data.repository.NationRepository
+import it.rfmariano.nstates.notifications.NextIssueNotificationScheduler
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -16,7 +19,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class IssuesViewModel @Inject constructor(
-    private val repository: NationRepository
+    private val repository: NationRepository,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<IssuesUiState>(IssuesUiState.Loading)
@@ -53,6 +57,10 @@ class IssuesViewModel @Inject constructor(
                 _uiState.value = IssuesUiState.Success(
                     issues = issuesData.issues,
                     nextIssueTime = issuesData.nextIssueTime
+                )
+                NextIssueNotificationScheduler.schedule(
+                    context = appContext,
+                    nextIssueTimeSeconds = issuesData.nextIssueTime
                 )
             }
             .onFailure { error ->

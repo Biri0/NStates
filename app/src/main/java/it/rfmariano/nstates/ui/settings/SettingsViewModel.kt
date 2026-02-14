@@ -27,15 +27,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 repository.activeNation,
-                settingsDataSource.initialPage,
-                settingsDataSource.issueNotificationsEnabled,
-                settingsDataSource.issueNotificationAccounts
-            ) { activeNation, initialPage, notificationsEnabled, notificationAccounts ->
+                settingsDataSource.initialPage
+            ) { activeNation, initialPage ->
                 SettingsSnapshot(
                     activeNation = activeNation,
-                    initialPage = initialPage,
-                    notificationsEnabled = notificationsEnabled,
-                    notificationAccounts = notificationAccounts
+                    initialPage = initialPage
                 )
             }.collectLatest { snapshot ->
                 updateState(snapshot)
@@ -62,36 +58,17 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun removeAccount(nationName: String): Int {
-        viewModelScope.launch {
-            settingsDataSource.removeIssueNotificationAccount(nationName)
-        }
         val remaining = repository.removeAccount(nationName)
         val current = _uiState.value
         if (current is SettingsUiState.Ready) {
-            val normalized = SettingsDataSource.normalizeNationKey(nationName)
-            val updatedNotificationAccounts = current.issueNotificationAccounts - normalized
             updateState(
                 SettingsSnapshot(
                     activeNation = repository.getCurrentNationName(),
-                    initialPage = current.initialPage,
-                    notificationsEnabled = current.issueNotificationsEnabled,
-                    notificationAccounts = updatedNotificationAccounts
+                    initialPage = current.initialPage
                 )
             )
         }
         return remaining
-    }
-
-    fun setIssueNotificationsEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsDataSource.setIssueNotificationsEnabled(enabled)
-        }
-    }
-
-    fun setIssueNotificationAccount(nationName: String, enabled: Boolean) {
-        viewModelScope.launch {
-            settingsDataSource.setIssueNotificationAccount(nationName, enabled)
-        }
     }
 
     private fun updateState(snapshot: SettingsSnapshot) {
@@ -101,16 +78,12 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = SettingsUiState.Ready(
             nationName = snapshot.activeNation ?: "",
             accounts = accounts,
-            initialPage = snapshot.initialPage,
-            issueNotificationsEnabled = snapshot.notificationsEnabled,
-            issueNotificationAccounts = snapshot.notificationAccounts
+            initialPage = snapshot.initialPage
         )
     }
 
     private data class SettingsSnapshot(
         val activeNation: String?,
-        val initialPage: String,
-        val notificationsEnabled: Boolean,
-        val notificationAccounts: Set<String>
+        val initialPage: String
     )
 }

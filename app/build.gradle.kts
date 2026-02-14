@@ -84,7 +84,6 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.androidx.hilt.work)
-    ksp(libs.androidx.hilt.compiler)
 
     // Ktor
     implementation(libs.ktor.client.core)
@@ -105,6 +104,7 @@ dependencies {
 
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
+
 
     // Coil (image loading)
     implementation(libs.coil.compose)
