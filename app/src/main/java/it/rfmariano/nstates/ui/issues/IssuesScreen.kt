@@ -297,7 +297,7 @@ private fun IssueCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = issue.text,
+                text = italicizeHtmlItalics(issue.text),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
