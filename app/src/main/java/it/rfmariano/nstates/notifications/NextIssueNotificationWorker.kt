@@ -2,6 +2,7 @@ package it.rfmariano.nstates.notifications
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -29,6 +30,7 @@ class NextIssueNotificationWorker @AssistedInject constructor(
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("New issues available")
             .setContentText("Open NStates to review your latest issues.")
+            .setContentIntent(createLaunchIntent())
             .setAutoCancel(true)
             .build()
 
@@ -46,6 +48,26 @@ class NextIssueNotificationWorker @AssistedInject constructor(
             NotificationManager.IMPORTANCE_DEFAULT
         )
         manager.createNotificationChannel(channel)
+    }
+
+    private fun createLaunchIntent(): PendingIntent? {
+        val launchIntent = applicationContext.packageManager
+            .getLaunchIntentForPackage(applicationContext.packageName)
+            ?.apply {
+                flags = flags or android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                    android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+
+        return if (launchIntent == null) {
+            null
+        } else {
+            PendingIntent.getActivity(
+                applicationContext,
+                0,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
     }
 
     companion object {
