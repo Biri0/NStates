@@ -5,6 +5,7 @@ sealed interface SettingsUiState {
     data class Ready(
         val nationName: String,
         val accounts: List<String>,
-        val initialPage: String
+        val initialPage: String,
+        val issueNotificationsEnabled: Boolean
     ) : SettingsUiState
 }

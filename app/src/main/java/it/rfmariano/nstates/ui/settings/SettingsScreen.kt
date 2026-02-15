@@ -1,6 +1,11 @@
 package it.rfmariano.nstates.ui.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import it.rfmariano.nstates.ui.navigation.Routes
@@ -58,6 +64,32 @@ fun SettingsScreen(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     var lastNationName by remember { mutableStateOf<String?>(null) }
+    var pendingNotificationEnable by remember { mutableStateOf(false) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            viewModel.setIssueNotificationsEnabled(true)
+        } else {
+            if (pendingNotificationEnable) {
+                viewModel.setIssueNotificationsEnabled(false)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Notification permission denied")
+                }
+            }
+        }
+        pendingNotificationEnable = false
+    }
+
+    val hasNotificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+    } else {
+        true
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -94,7 +126,22 @@ fun SettingsScreen(
                     nationName = state.nationName,
                     accounts = state.accounts,
                     initialPage = state.initialPage,
+                    issueNotificationsEnabled = state.issueNotificationsEnabled,
                     onInitialPageChange = { viewModel.setInitialPage(it) },
+                    onNotificationsToggle = { enabled ->
+                        if (enabled) {
+                            if (hasNotificationPermission) {
+                                viewModel.setIssueNotificationsEnabled(true)
+                            } else if (!pendingNotificationEnable) {
+                                pendingNotificationEnable = true
+                                notificationPermissionLauncher.launch(
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                )
+                            }
+                        } else {
+                            viewModel.setIssueNotificationsEnabled(false)
+                        }
+                    },
                     onAccountSelected = {
                         viewModel.switchAccount(it)
                     },
@@ -132,7 +179,9 @@ private fun SettingsContent(
     nationName: String,
     accounts: List<String>,
     initialPage: String,
+    issueNotificationsEnabled: Boolean,
     onInitialPageChange: (String) -> Unit,
+    onNotificationsToggle: (Boolean) -> Unit,
     onAccountSelected: (String) -> Unit,
     onAddNation: () -> Unit,
     onRemoveAccount: (String) -> Unit,
@@ -245,6 +294,40 @@ private fun SettingsContent(
                         },
                         title = { Text("Remove account") },
                         text = { Text("Remove $selectedAccount from this device?") }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Notifications card
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Notifications",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Alerts when new issues are available",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Issue notifications",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = issueNotificationsEnabled,
+                        onCheckedChange = onNotificationsToggle
                     )
                 }
             }

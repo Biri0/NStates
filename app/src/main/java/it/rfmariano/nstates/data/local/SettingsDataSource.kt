@@ -3,6 +3,7 @@ package it.rfmariano.nstates.data.local
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -53,10 +54,23 @@ class SettingsDataSource @Inject constructor(
         initialPage.first()
     }
 
+    val issueNotificationsEnabled: Flow<Boolean> = context.dataStore.data
+        .map { prefs ->
+            prefs[KEY_ISSUE_NOTIFICATIONS] ?: DEFAULT_ISSUE_NOTIFICATIONS
+        }
+
+    suspend fun setIssueNotificationsEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_ISSUE_NOTIFICATIONS] = enabled
+        }
+    }
+
     companion object {
         private val KEY_USER_AGENT = stringPreferencesKey("user_agent")
         private const val DEFAULT_USER_AGENT = "NStates Android Client (contact: rfmariano.it)"
         private val KEY_INITIAL_PAGE = stringPreferencesKey("initial_page")
         const val DEFAULT_INITIAL_PAGE = "nation"
+        private val KEY_ISSUE_NOTIFICATIONS = booleanPreferencesKey("issue_notifications")
+        private const val DEFAULT_ISSUE_NOTIFICATIONS = false
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import it.rfmariano.nstates.data.local.SettingsDataSource
 import it.rfmariano.nstates.data.model.Issue
 import it.rfmariano.nstates.data.repository.NationRepository
 import it.rfmariano.nstates.notifications.NextIssueNotificationScheduler
@@ -20,6 +21,7 @@ import javax.inject.Inject
 @HiltViewModel
 class IssuesViewModel @Inject constructor(
     private val repository: NationRepository,
+    private val settingsDataSource: SettingsDataSource,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -33,6 +35,8 @@ class IssuesViewModel @Inject constructor(
     private val _selectedIssue = MutableStateFlow<Issue?>(null)
     val selectedIssue: StateFlow<Issue?> = _selectedIssue.asStateFlow()
 
+    private val notificationsEnabled = MutableStateFlow(true)
+
     init {
         viewModelScope.launch {
             repository.activeNation
@@ -41,6 +45,15 @@ class IssuesViewModel @Inject constructor(
                 .collectLatest {
                     loadIssuesInternal()
                 }
+        }
+
+        viewModelScope.launch {
+            settingsDataSource.issueNotificationsEnabled.collectLatest { enabled ->
+                notificationsEnabled.value = enabled
+                if (!enabled) {
+                    NextIssueNotificationScheduler.cancel(appContext)
+                }
+            }
         }
     }
 
@@ -58,10 +71,14 @@ class IssuesViewModel @Inject constructor(
                     issues = issuesData.issues,
                     nextIssueTime = issuesData.nextIssueTime
                 )
-                NextIssueNotificationScheduler.schedule(
-                    context = appContext,
-                    nextIssueTimeSeconds = issuesData.nextIssueTime
-                )
+                if (notificationsEnabled.value) {
+                    NextIssueNotificationScheduler.schedule(
+                        context = appContext,
+                        nextIssueTimeSeconds = issuesData.nextIssueTime
+                    )
+                } else {
+                    NextIssueNotificationScheduler.cancel(appContext)
+                }
             }
             .onFailure { error ->
                 _uiState.value = IssuesUiState.Error(
