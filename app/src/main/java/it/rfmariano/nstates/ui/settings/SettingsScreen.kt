@@ -133,10 +133,16 @@ fun SettingsScreen(
                             if (hasNotificationPermission) {
                                 viewModel.setIssueNotificationsEnabled(true)
                             } else if (!pendingNotificationEnable) {
-                                pendingNotificationEnable = true
-                                notificationPermissionLauncher.launch(
-                                    Manifest.permission.POST_NOTIFICATIONS
-                                )
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    pendingNotificationEnable = true
+                                    notificationPermissionLauncher.launch(
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    )
+                                } else {
+                                    // Should be covered by hasNotificationPermission=true for < 33,
+                                    // but just in case logic falls through here.
+                                    viewModel.setIssueNotificationsEnabled(true)
+                                }
                             }
                         } else {
                             viewModel.setIssueNotificationsEnabled(false)
