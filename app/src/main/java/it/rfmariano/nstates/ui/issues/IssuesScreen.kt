@@ -53,8 +53,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.platform.LocalContext
+import coil3.request.ImageRequest
 import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
+import coil3.network.httpHeaders
+import coil3.network.NetworkHeaders
 import it.rfmariano.nstates.data.api.CensusScales
 import it.rfmariano.nstates.data.model.Issue
 import it.rfmariano.nstates.data.model.IssueOption
@@ -76,6 +80,7 @@ fun IssuesScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val actionState by viewModel.actionState.collectAsStateWithLifecycle()
     val selectedIssue by viewModel.selectedIssue.collectAsStateWithLifecycle()
+    val userAgent by viewModel.userAgent.collectAsStateWithLifecycle()
 
     // Confirmation dialog
     when (val action = actionState) {
@@ -110,6 +115,7 @@ fun IssuesScreen(
         BackHandler(onBack = viewModel::clearSelectedIssue)
         IssueDetailContent(
             issue = currentIssue,
+            userAgent = userAgent,
             onBack = viewModel::clearSelectedIssue,
             onSelectOption = { optionId ->
                 viewModel.requestAnswer(currentIssue, optionId)
@@ -317,6 +323,7 @@ private fun IssueCard(
 @Composable
 private fun IssueDetailContent(
     issue: Issue,
+    userAgent: String,
     onBack: () -> Unit,
     onSelectOption: (Int) -> Unit,
     onDismissIssue: () -> Unit,
@@ -358,8 +365,14 @@ private fun IssueDetailContent(
             // Issue banner image
             if (issue.pic1.isNotBlank()) {
                 val imageUrl = "https://www.nationstates.net/images/dilemmas/${issue.pic1}.jpg"
+                val context = LocalContext.current
+                val imageRequest = ImageRequest.Builder(context)
+                    .data(imageUrl)
+                    .httpHeaders(NetworkHeaders.Builder().set("User-Agent", userAgent).build())
+                    .build()
+                
                 SubcomposeAsyncImage(
-                    model = imageUrl,
+                    model = imageRequest,
                     contentDescription = issue.title,
                     contentScale = ContentScale.Crop,
                     success = {

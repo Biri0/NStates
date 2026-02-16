@@ -32,8 +32,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.platform.LocalContext
+import coil3.request.ImageRequest
 import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
+import coil3.network.httpHeaders
+import coil3.network.NetworkHeaders
 import it.rfmariano.nstates.data.model.NationData
 import java.util.Locale
 
@@ -89,6 +93,7 @@ fun NationScreen(
             is NationUiState.Success -> {
                 NationContent(
                     nation = state.nation,
+                    userAgent = state.userAgent,
                     modifier = Modifier.padding(innerPadding)
                 )
             }
@@ -99,6 +104,7 @@ fun NationScreen(
 @Composable
 private fun NationContent(
     nation: NationData,
+    userAgent: String,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -108,7 +114,7 @@ private fun NationContent(
             .padding(16.dp)
     ) {
         // Header: Flag + Name + Motto
-        NationHeader(nation = nation)
+        NationHeader(nation = nation, userAgent = userAgent)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -191,6 +197,7 @@ private fun NationContent(
 @Composable
 private fun NationHeader(
     nation: NationData,
+    userAgent: String,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -198,8 +205,15 @@ private fun NationHeader(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (nation.flagUrl.isNotBlank()) {
+            val context = LocalContext.current
+            val imageUrl = if (nation.flagUrl.startsWith("http")) nation.flagUrl else "https://www.nationstates.net" + nation.flagUrl
+            val imageRequest = ImageRequest.Builder(context)
+                .data(imageUrl)
+                .httpHeaders(NetworkHeaders.Builder().set("User-Agent", userAgent).build())
+                .build()
+
             SubcomposeAsyncImage(
-                model = nation.flagUrl,
+                model = imageRequest,
                 contentDescription = "${nation.name} flag",
                 contentScale = ContentScale.Fit,
                 success = {

@@ -12,9 +12,12 @@ import it.rfmariano.nstates.notifications.NextIssueNotificationScheduler
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -34,6 +37,13 @@ class IssuesViewModel @Inject constructor(
     /** The currently selected issue for detail view. */
     private val _selectedIssue = MutableStateFlow<Issue?>(null)
     val selectedIssue: StateFlow<Issue?> = _selectedIssue.asStateFlow()
+
+    val userAgent: StateFlow<String> = settingsDataSource.userAgent
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ""
+        )
 
     private val notificationsEnabled = MutableStateFlow(true)
 
