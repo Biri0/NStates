@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -364,27 +365,27 @@ private fun IssueDetailContent(
         ) {
             // Issue banner image
             if (issue.pic1.isNotBlank()) {
-                val imageUrl = "https://www.nationstates.net/images/dilemmas/${issue.pic1}.jpg"
+                val imageUrl = "https://www.nationstates.net/images/banners/${issue.pic1}.jpg"
                 val context = LocalContext.current
                 val imageRequest = ImageRequest.Builder(context)
                     .data(imageUrl)
                     .httpHeaders(NetworkHeaders.Builder().set("User-Agent", userAgent).build())
                     .build()
-                
+
                 SubcomposeAsyncImage(
                     model = imageRequest,
                     contentDescription = issue.title,
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.FillWidth,
                     success = {
                         SubcomposeAsyncImageContent(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(180.dp)
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
                     }
                 )
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Title
             Text(
