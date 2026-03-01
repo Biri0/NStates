@@ -8,5 +8,6 @@ object Routes {
     const val LOGIN_ADD = "login_add"
     const val NATION = "nation"
     const val ISSUES = "issues"
+    const val SEARCH = "search"
     const val SETTINGS = "settings"
 }

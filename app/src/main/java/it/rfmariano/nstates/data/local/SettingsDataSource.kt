@@ -76,6 +76,52 @@ class SettingsDataSource @Inject constructor(
         }
     }
 
+    val pinnedNations: Flow<List<String>> = context.dataStore.data
+        .map { prefs ->
+            parsePinnedNations(prefs[KEY_PINNED_NATIONS])
+        }
+
+    suspend fun addPinnedNation(nationName: String) {
+        val normalized = nationName.trim()
+        require(normalized.isNotBlank()) { "nationName cannot be blank" }
+        context.dataStore.edit { prefs ->
+            val current = parsePinnedNations(prefs[KEY_PINNED_NATIONS]).toMutableList()
+            if (current.none { it.equals(normalized, ignoreCase = true) }) {
+                current.add(0, normalized)
+                prefs[KEY_PINNED_NATIONS] = serializePinnedNations(current)
+            }
+        }
+    }
+
+    suspend fun removePinnedNation(nationName: String) {
+        val normalized = nationName.trim()
+        require(normalized.isNotBlank()) { "nationName cannot be blank" }
+        context.dataStore.edit { prefs ->
+            val updated = parsePinnedNations(prefs[KEY_PINNED_NATIONS])
+                .filterNot { it.equals(normalized, ignoreCase = true) }
+            prefs[KEY_PINNED_NATIONS] = serializePinnedNations(updated)
+        }
+    }
+
+    private fun parsePinnedNations(raw: String?): List<String> {
+        if (raw.isNullOrBlank()) return emptyList()
+        val deduped = linkedMapOf<String, String>()
+        raw.split(PINNED_NATIONS_SEPARATOR).forEach { entry ->
+            val trimmed = entry.trim()
+            if (trimmed.isNotBlank()) {
+                deduped.putIfAbsent(trimmed.lowercase(), trimmed)
+            }
+        }
+        return deduped.values.toList()
+    }
+
+    private fun serializePinnedNations(nations: List<String>): String {
+        return nations
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .joinToString(PINNED_NATIONS_SEPARATOR)
+    }
+
     companion object {
         private val KEY_USER_AGENT = stringPreferencesKey("user_agent")
         private const val DEFAULT_USER_AGENT = "NStates Android Client (contact: rfmariano.it)"
@@ -84,5 +130,7 @@ class SettingsDataSource @Inject constructor(
         private val KEY_ISSUE_NOTIFICATIONS = booleanPreferencesKey("issue_notifications")
         private const val DEFAULT_ISSUE_NOTIFICATIONS = false
         private val KEY_OPENROUTER_API_KEY = stringPreferencesKey("openrouter_api_key")
+        private val KEY_PINNED_NATIONS = stringPreferencesKey("pinned_nations")
+        private const val PINNED_NATIONS_SEPARATOR = "\n"
     }
 }

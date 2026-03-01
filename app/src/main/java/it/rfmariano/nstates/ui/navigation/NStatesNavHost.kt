@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import it.rfmariano.nstates.ui.issues.IssuesScreen
 import it.rfmariano.nstates.ui.login.LoginScreen
 import it.rfmariano.nstates.ui.nation.NationScreen
+import it.rfmariano.nstates.ui.search.SearchScreen
 import it.rfmariano.nstates.ui.settings.SettingsScreen
 
 @Composable
@@ -51,6 +52,10 @@ fun NStatesNavHost(
 
         composable(Routes.ISSUES) {
             IssuesScreen()
+        }
+
+        composable(Routes.SEARCH) {
+            SearchScreen()
         }
 
         composable(Routes.SETTINGS) {

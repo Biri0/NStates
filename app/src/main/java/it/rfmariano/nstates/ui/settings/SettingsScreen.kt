@@ -179,7 +179,8 @@ fun SettingsScreen(
  */
 private val initialPageOptions = listOf(
     Routes.NATION to "Nation",
-    Routes.ISSUES to "Issues"
+    Routes.ISSUES to "Issues",
+    Routes.SEARCH to "Search"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

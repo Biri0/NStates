@@ -135,6 +135,14 @@ class NationRepository @Inject constructor(
         return resumeSession()
     }
 
+    suspend fun fetchNationByName(nationName: String): Result<NationData> {
+        val userAgent = settings.userAgent.first()
+        return nationApi.fetchNation(
+            nationName = nationName,
+            userAgent = userAgent
+        )
+    }
+
     fun clearCachedNation() {
         cachedNation = null
     }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Ballot
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -64,7 +65,9 @@ class MainActivity : ComponentActivity() {
         // If user has a stored nation name but expired tokens, go to login
         // (LoginViewModel will pre-fill the nation name).
         val requestedRoute = intent?.getStringExtra(EXTRA_ROUTE)
-            ?.takeIf { it == Routes.NATION || it == Routes.ISSUES || it == Routes.SETTINGS }
+            ?.takeIf {
+                it == Routes.NATION || it == Routes.ISSUES || it == Routes.SEARCH || it == Routes.SETTINGS
+            }
         val startDestination = if (authLocal.isLoggedIn) {
             requestedRoute ?: initialPageRoute
         } else {
@@ -142,6 +145,11 @@ private fun NStatesBottomBar(
             label = "Issues",
             icon = Icons.Filled.Ballot,
             route = Routes.ISSUES
+        ),
+        BottomNavItem(
+            label = "Search",
+            icon = Icons.Filled.Search,
+            route = Routes.SEARCH
         ),
         BottomNavItem(
             label = "Settings",
