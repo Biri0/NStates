@@ -30,7 +30,8 @@ data class NationData(
     val endorsements: String = "",
     val freedom: Freedom = Freedom(),
     val government: Government = Government(),
-    val deaths: Deaths = Deaths()
+    val deaths: Deaths = Deaths(),
+    val policies: List<String> = emptyList()
 )
 
 data class Freedom(

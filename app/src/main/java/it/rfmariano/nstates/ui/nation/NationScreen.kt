@@ -190,6 +190,26 @@ private fun NationContent(
             InfoRow(label = "Crime", value = nation.crime)
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        InfoCard(title = "Policies") {
+            if (nation.policies.isEmpty()) {
+                Text(
+                    text = "No active policies",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                nation.policies.forEach { policy ->
+                    Text(
+                        text = "• $policy",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
     }
 }

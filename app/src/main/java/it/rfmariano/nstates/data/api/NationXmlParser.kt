@@ -54,6 +54,8 @@ class NationXmlParser @Inject constructor() {
         var freedom = Freedom()
         var government = Government()
         var deaths = Deaths()
+        val policies = mutableListOf<String>()
+        var inPolicies = false
 
         var eventType = parser.eventType
         while (eventType != XmlPullParser.END_DOCUMENT) {
@@ -89,7 +91,13 @@ class NationXmlParser @Inject constructor() {
                     "FREEDOM" -> freedom = parseFreedom(parser)
                     "GOVT" -> government = parseGovernment(parser)
                     "DEATHS" -> deaths = parseDeaths(parser)
+                    "POLICIES" -> inPolicies = true
+                    "POLICY" -> if (inPolicies) {
+                        parsePolicy(parser).takeIf { it.isNotBlank() }?.let(policies::add)
+                    }
                 }
+            } else if (eventType == XmlPullParser.END_TAG && parser.name == "POLICIES") {
+                inPolicies = false
             }
             eventType = parser.next()
         }
@@ -124,7 +132,8 @@ class NationXmlParser @Inject constructor() {
             endorsements = endorsements,
             freedom = freedom,
             government = government,
-            deaths = deaths
+            deaths = deaths,
+            policies = policies
         )
     }
 
@@ -223,5 +232,26 @@ class NationXmlParser @Inject constructor() {
         }
 
         return Deaths(causes = causes)
+    }
+
+    private fun parsePolicy(parser: XmlPullParser): String {
+        var policyName = ""
+
+        var eventType = parser.next()
+        while (eventType != XmlPullParser.END_DOCUMENT) {
+            if (eventType == XmlPullParser.START_TAG && parser.name == "NAME") {
+                policyName = parser.nextText()
+            } else if (eventType == XmlPullParser.TEXT && policyName.isBlank()) {
+                val text = parser.text?.trim().orEmpty()
+                if (text.isNotEmpty()) {
+                    policyName = text
+                }
+            } else if (eventType == XmlPullParser.END_TAG && parser.name == "POLICY") {
+                break
+            }
+            eventType = parser.next()
+        }
+
+        return policyName
     }
 }

@@ -71,7 +71,7 @@ class NationApi @Inject constructor(
             "influence", "tax", "gdp", "income", "poorest", "richest",
             "majorindustry", "crime", "sensibilities",
             "govtdesc", "industrydesc", "wa", "endorsements",
-            "freedom", "govt", "deaths"
+            "freedom", "govt", "deaths", "policies"
         )
     }
 }
