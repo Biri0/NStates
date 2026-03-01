@@ -65,6 +65,17 @@ class SettingsDataSource @Inject constructor(
         }
     }
 
+    val openRouterApiKey: Flow<String> = context.dataStore.data
+        .map { prefs ->
+            prefs[KEY_OPENROUTER_API_KEY] ?: ""
+        }
+
+    suspend fun setOpenRouterApiKey(apiKey: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_OPENROUTER_API_KEY] = apiKey.trim()
+        }
+    }
+
     companion object {
         private val KEY_USER_AGENT = stringPreferencesKey("user_agent")
         private const val DEFAULT_USER_AGENT = "NStates Android Client (contact: rfmariano.it)"
@@ -72,5 +83,6 @@ class SettingsDataSource @Inject constructor(
         const val DEFAULT_INITIAL_PAGE = "nation"
         private val KEY_ISSUE_NOTIFICATIONS = booleanPreferencesKey("issue_notifications")
         private const val DEFAULT_ISSUE_NOTIFICATIONS = false
+        private val KEY_OPENROUTER_API_KEY = stringPreferencesKey("openrouter_api_key")
     }
 }

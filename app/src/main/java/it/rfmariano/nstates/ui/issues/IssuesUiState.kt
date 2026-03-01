@@ -1,6 +1,7 @@
 package it.rfmariano.nstates.ui.issues
 
 import it.rfmariano.nstates.data.model.Issue
+import it.rfmariano.nstates.data.model.IssueChatMessage
 import it.rfmariano.nstates.data.model.IssueResult
 
 /**
@@ -29,3 +30,13 @@ sealed interface IssueActionState {
     data class ResultReady(val result: IssueResult) : IssueActionState
     data class ActionError(val message: String) : IssueActionState
 }
+
+data class IssueChatUiState(
+    val messages: List<IssueChatMessage> = emptyList(),
+    val streamingMessage: String = "",
+    val isSending: Boolean = false,
+    val attempt: Int = 0,
+    val maxAttempts: Int = 3,
+    val errorMessage: String? = null,
+    val isApiKeyConfigured: Boolean = false
+)

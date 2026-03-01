@@ -7,8 +7,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import it.rfmariano.nstates.data.local.SettingsDataSource
 import it.rfmariano.nstates.data.model.Issue
+import it.rfmariano.nstates.data.repository.IssueChatRepository
 import it.rfmariano.nstates.data.repository.NationRepository
 import it.rfmariano.nstates.notifications.NextIssueNotificationScheduler
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -24,6 +27,7 @@ import javax.inject.Inject
 @HiltViewModel
 class IssuesViewModel @Inject constructor(
     private val repository: NationRepository,
+    private val issueChatRepository: IssueChatRepository,
     private val settingsDataSource: SettingsDataSource,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
@@ -37,6 +41,11 @@ class IssuesViewModel @Inject constructor(
     /** The currently selected issue for detail view. */
     private val _selectedIssue = MutableStateFlow<Issue?>(null)
     val selectedIssue: StateFlow<Issue?> = _selectedIssue.asStateFlow()
+
+    private val _chatState = MutableStateFlow(IssueChatUiState())
+    val chatState: StateFlow<IssueChatUiState> = _chatState.asStateFlow()
+
+    private var chatObserverJob: Job? = null
 
     val userAgent: StateFlow<String> = settingsDataSource.userAgent
         .stateIn(
@@ -63,6 +72,14 @@ class IssuesViewModel @Inject constructor(
                 if (!enabled) {
                     NextIssueNotificationScheduler.cancel(appContext)
                 }
+            }
+        }
+
+        viewModelScope.launch {
+            settingsDataSource.openRouterApiKey.collectLatest { apiKey ->
+                _chatState.value = _chatState.value.copy(
+                    isApiKeyConfigured = apiKey.isNotBlank()
+                )
             }
         }
     }
@@ -99,10 +116,19 @@ class IssuesViewModel @Inject constructor(
 
     fun selectIssue(issue: Issue) {
         _selectedIssue.value = issue
+        observeChat(issue.id)
     }
 
     fun clearSelectedIssue() {
         _selectedIssue.value = null
+        chatObserverJob?.cancel()
+        _chatState.value = _chatState.value.copy(
+            messages = emptyList(),
+            streamingMessage = "",
+            isSending = false,
+            attempt = 0,
+            errorMessage = null
+        )
     }
 
     /**
@@ -167,6 +193,96 @@ class IssuesViewModel @Inject constructor(
         _uiState.value = current.copy(
             issues = current.issues.filter { it.id != issueId }
         )
+    }
+
+    fun clearChatConversation() {
+        val issue = _selectedIssue.value ?: return
+        viewModelScope.launch {
+            issueChatRepository.clearConversation(issue.id)
+            _chatState.value = _chatState.value.copy(
+                streamingMessage = "",
+                isSending = false,
+                attempt = 0,
+                errorMessage = null
+            )
+        }
+    }
+
+    fun sendChatMessage(message: String) {
+        val issue = _selectedIssue.value ?: return
+        val userMessage = message.trim()
+        if (userMessage.isBlank()) return
+
+        viewModelScope.launch {
+            val apiKey = settingsDataSource.openRouterApiKey.first()
+            if (apiKey.isBlank()) {
+                _chatState.value = _chatState.value.copy(
+                    errorMessage = "Set your OpenRouter API key in Settings to use issue chat."
+                )
+                return@launch
+            }
+
+            issueChatRepository.addUserMessage(issue.id, userMessage)
+            _chatState.value = _chatState.value.copy(
+                isSending = true,
+                attempt = 0,
+                errorMessage = null,
+                streamingMessage = ""
+            )
+
+            val maxAttempts = _chatState.value.maxAttempts
+            var lastError: Throwable? = null
+
+            for (attempt in 1..maxAttempts) {
+                _chatState.value = _chatState.value.copy(attempt = attempt, streamingMessage = "")
+                val collected = StringBuilder()
+                val result = runCatching {
+                    val conversation = issueChatRepository.getMessages(issue.id)
+                    issueChatRepository.streamAssistantReply(
+                        issue = issue,
+                        messages = conversation,
+                        apiKey = apiKey
+                    ).collect { token ->
+                        collected.append(token)
+                        _chatState.value = _chatState.value.copy(
+                            streamingMessage = collected.toString()
+                        )
+                    }
+                }
+
+                if (result.isSuccess && collected.isNotBlank()) {
+                    issueChatRepository.addAssistantMessage(issue.id, collected.toString())
+                    _chatState.value = _chatState.value.copy(
+                        isSending = false,
+                        attempt = 0,
+                        streamingMessage = "",
+                        errorMessage = null
+                    )
+                    return@launch
+                }
+
+                lastError = result.exceptionOrNull()
+                    ?: IllegalStateException("Empty response from OpenRouter.")
+                if (attempt < maxAttempts) {
+                    delay(500L * (1 shl (attempt - 1)))
+                }
+            }
+
+            _chatState.value = _chatState.value.copy(
+                isSending = false,
+                streamingMessage = "",
+                errorMessage = lastError?.message ?: "Failed to get AI response."
+            )
+        }
+    }
+
+    private fun observeChat(issueId: Int) {
+        chatObserverJob?.cancel()
+        chatObserverJob = viewModelScope.launch {
+            issueChatRepository.observeMessages(issueId).collectLatest { messages ->
+                _chatState.value = _chatState.value.copy(messages = messages)
+            }
+        }
     }
 
     private fun formatErrorMessage(error: Throwable): String {

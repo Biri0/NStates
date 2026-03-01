@@ -32,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -40,7 +41,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -81,6 +85,7 @@ fun IssuesScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val actionState by viewModel.actionState.collectAsStateWithLifecycle()
     val selectedIssue by viewModel.selectedIssue.collectAsStateWithLifecycle()
+    val chatState by viewModel.chatState.collectAsStateWithLifecycle()
     val userAgent by viewModel.userAgent.collectAsStateWithLifecycle()
 
     // Confirmation dialog
@@ -124,6 +129,9 @@ fun IssuesScreen(
             onDismissIssue = {
                 viewModel.requestAnswer(currentIssue, -1)
             },
+            chatState = chatState,
+            onSendChatMessage = viewModel::sendChatMessage,
+            onClearConversation = viewModel::clearChatConversation,
             modifier = modifier
         )
     } else {
@@ -328,8 +336,13 @@ private fun IssueDetailContent(
     onBack: () -> Unit,
     onSelectOption: (Int) -> Unit,
     onDismissIssue: () -> Unit,
+    chatState: IssueChatUiState,
+    onSendChatMessage: (String) -> Unit,
+    onClearConversation: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var chatInput by rememberSaveable(issue.id) { mutableStateOf("") }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0),
@@ -447,6 +460,114 @@ private fun IssueDetailContent(
                     modifier = Modifier.padding(end = 8.dp)
                 )
                 Text("Dismiss Issue")
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Issue AI Chat",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (!chatState.isApiKeyConfigured) {
+                Text(
+                    text = "Add your OpenRouter API key in Settings to use this chat.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                if (chatState.messages.isEmpty() && chatState.streamingMessage.isBlank()) {
+                    Text(
+                        text = "Ask anything about this issue and its options.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    chatState.messages.forEach { message ->
+                        val isUser = message.role.name == "USER"
+                        if (isUser) {
+                            Text(
+                                text = "You: ${message.content}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            Text(
+                                text = buildAnnotatedString {
+                                    append("AI: ")
+                                    append(boldMarkdownToAnnotatedString(message.content))
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+                    if (chatState.streamingMessage.isNotBlank()) {
+                        Text(
+                            text = buildAnnotatedString {
+                                append("AI: ")
+                                append(boldMarkdownToAnnotatedString(chatState.streamingMessage))
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+                }
+
+                if (chatState.isSending) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.width(18.dp).height(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Requesting... attempt ${chatState.attempt}/${chatState.maxAttempts}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                chatState.errorMessage?.let { error ->
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                OutlinedTextField(
+                    value = chatInput,
+                    onValueChange = { chatInput = it },
+                    label = { Text("Message") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !chatState.isSending
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = {
+                            val text = chatInput
+                            chatInput = ""
+                            onSendChatMessage(text)
+                        },
+                        enabled = chatInput.isNotBlank() && !chatState.isSending
+                    ) {
+                        Text("Send")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedButton(
+                        onClick = onClearConversation,
+                        enabled = !chatState.isSending
+                    ) {
+                        Text("Clear")
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -599,6 +720,28 @@ private fun italicizeHtmlItalics(text: String): AnnotatedString {
                 append(text.substring(lastIndex, start))
             }
             withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                append(match.groupValues[1])
+            }
+            lastIndex = match.range.last + 1
+        }
+        if (lastIndex < text.length) {
+            append(text.substring(lastIndex))
+        }
+    }
+}
+
+private fun boldMarkdownToAnnotatedString(text: String): AnnotatedString {
+    if (!text.contains("**")) return AnnotatedString(text)
+
+    val regex = Regex("\\*\\*(.*?)\\*\\*", setOf(RegexOption.DOT_MATCHES_ALL))
+    return buildAnnotatedString {
+        var lastIndex = 0
+        regex.findAll(text).forEach { match ->
+            val start = match.range.first
+            if (start > lastIndex) {
+                append(text.substring(lastIndex, start))
+            }
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
                 append(match.groupValues[1])
             }
             lastIndex = match.range.last + 1

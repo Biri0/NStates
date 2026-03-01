@@ -32,12 +32,14 @@ class SettingsViewModel @Inject constructor(
             combine(
                 repository.activeNation,
                 settingsDataSource.initialPage,
-                settingsDataSource.issueNotificationsEnabled
-            ) { activeNation, initialPage, issueNotificationsEnabled ->
+                settingsDataSource.issueNotificationsEnabled,
+                settingsDataSource.openRouterApiKey
+            ) { activeNation, initialPage, issueNotificationsEnabled, openRouterApiKey ->
                 SettingsSnapshot(
                     activeNation = activeNation,
                     initialPage = initialPage,
-                    issueNotificationsEnabled = issueNotificationsEnabled
+                    issueNotificationsEnabled = issueNotificationsEnabled,
+                    openRouterApiKey = openRouterApiKey
                 )
             }.collectLatest { snapshot ->
                 updateState(snapshot)
@@ -68,6 +70,16 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setOpenRouterApiKey(apiKey: String) {
+        val current = _uiState.value
+        if (current is SettingsUiState.Ready) {
+            _uiState.value = current.copy(openRouterApiKey = apiKey)
+            viewModelScope.launch {
+                settingsDataSource.setOpenRouterApiKey(apiKey)
+            }
+        }
+    }
+
     fun logout() {
         repository.logout()
     }
@@ -84,7 +96,8 @@ class SettingsViewModel @Inject constructor(
                 SettingsSnapshot(
                     activeNation = repository.getCurrentNationName(),
                     initialPage = current.initialPage,
-                    issueNotificationsEnabled = current.issueNotificationsEnabled
+                    issueNotificationsEnabled = current.issueNotificationsEnabled,
+                    openRouterApiKey = current.openRouterApiKey
                 )
             )
         }
@@ -99,13 +112,15 @@ class SettingsViewModel @Inject constructor(
             nationName = snapshot.activeNation ?: "",
             accounts = accounts,
             initialPage = snapshot.initialPage,
-            issueNotificationsEnabled = snapshot.issueNotificationsEnabled
+            issueNotificationsEnabled = snapshot.issueNotificationsEnabled,
+            openRouterApiKey = snapshot.openRouterApiKey
         )
     }
 
     private data class SettingsSnapshot(
         val activeNation: String?,
         val initialPage: String,
-        val issueNotificationsEnabled: Boolean
+        val issueNotificationsEnabled: Boolean,
+        val openRouterApiKey: String
     )
 }

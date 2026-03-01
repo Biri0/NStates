@@ -43,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -127,7 +128,9 @@ fun SettingsScreen(
                     accounts = state.accounts,
                     initialPage = state.initialPage,
                     issueNotificationsEnabled = state.issueNotificationsEnabled,
+                    openRouterApiKey = state.openRouterApiKey,
                     onInitialPageChange = { viewModel.setInitialPage(it) },
+                    onOpenRouterApiKeyChange = viewModel::setOpenRouterApiKey,
                     onNotificationsToggle = { enabled ->
                         if (enabled) {
                             if (hasNotificationPermission) {
@@ -186,7 +189,9 @@ private fun SettingsContent(
     accounts: List<String>,
     initialPage: String,
     issueNotificationsEnabled: Boolean,
+    openRouterApiKey: String,
     onInitialPageChange: (String) -> Unit,
+    onOpenRouterApiKeyChange: (String) -> Unit,
     onNotificationsToggle: (Boolean) -> Unit,
     onAccountSelected: (String) -> Unit,
     onAddNation: () -> Unit,
@@ -336,6 +341,35 @@ private fun SettingsContent(
                         onCheckedChange = onNotificationsToggle
                     )
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // AI card
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "AI Assistant",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Required to enable issue chat with OpenRouter",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = openRouterApiKey,
+                    onValueChange = onOpenRouterApiKeyChange,
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    label = { Text("OpenRouter API key") },
+                    placeholder = { Text("sk-or-v1-...") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
 
