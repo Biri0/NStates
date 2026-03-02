@@ -73,8 +73,17 @@ class IssueApi @Inject constructor(
             pin = pin,
             autologin = autologin
         ).mapCatching { result ->
-            val issueResult = xmlParser.parseIssueResult(result.body)
+            val issueResult = try {
+                xmlParser.parseIssueResult(result.body)
+            } catch (error: Throwable) {
+                throw IssueAnswerParseException(rawResponse = result.body, cause = error)
+            }
             Pair(issueResult, result)
         }
     }
 }
+
+class IssueAnswerParseException(
+    val rawResponse: String,
+    cause: Throwable
+) : Exception("Failed to parse issue answer response.", cause)

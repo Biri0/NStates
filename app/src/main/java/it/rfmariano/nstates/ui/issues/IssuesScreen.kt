@@ -110,6 +110,7 @@ fun IssuesScreen(
         is IssueActionState.ActionError -> {
             ErrorDialog(
                 message = action.message,
+                copyPayload = action.copyPayload,
                 onDismiss = viewModel::dismissResult
             )
         }
@@ -673,10 +674,13 @@ private fun SubmittingDialog() {
 @Composable
 private fun ErrorDialog(
     message: String,
+    copyPayload: String?,
     onDismiss: () -> Unit
 ) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
+    val textToCopy = copyPayload ?: message
+    val copyLabel = if (copyPayload != null) "Copy response" else "Copy"
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -697,12 +701,12 @@ private fun ErrorDialog(
                 onClick = {
                     scope.launch {
                         clipboard.setClipEntry(
-                            ClipEntry(ClipData.newPlainText("Error", message))
+                            ClipEntry(ClipData.newPlainText("Error", textToCopy))
                         )
                     }
                 }
             ) {
-                Text("Copy")
+                Text(copyLabel)
             }
         }
     )

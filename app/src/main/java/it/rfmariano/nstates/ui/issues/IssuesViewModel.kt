@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import it.rfmariano.nstates.data.api.IssueAnswerParseException
 import it.rfmariano.nstates.data.local.SettingsDataSource
 import it.rfmariano.nstates.data.model.Issue
 import it.rfmariano.nstates.data.repository.IssueChatRepository
@@ -167,9 +168,16 @@ class IssuesViewModel @Inject constructor(
                     _selectedIssue.value = null
                 }
                 .onFailure { error ->
-                    _actionState.value = IssueActionState.ActionError(
-                        formatErrorMessage(error)
-                    )
+                    _actionState.value = if (error is IssueAnswerParseException) {
+                        IssueActionState.ActionError(
+                            message = "Failed to parse the server response after answering this issue.",
+                            copyPayload = error.rawResponse
+                        )
+                    } else {
+                        IssueActionState.ActionError(
+                            message = formatErrorMessage(error)
+                        )
+                    }
                 }
         }
     }

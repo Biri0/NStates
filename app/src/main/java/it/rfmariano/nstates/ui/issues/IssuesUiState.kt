@@ -28,7 +28,10 @@ sealed interface IssueActionState {
     ) : IssueActionState
     data object Submitting : IssueActionState
     data class ResultReady(val result: IssueResult) : IssueActionState
-    data class ActionError(val message: String) : IssueActionState
+    data class ActionError(
+        val message: String,
+        val copyPayload: String? = null
+    ) : IssueActionState
 }
 
 data class IssueChatUiState(
