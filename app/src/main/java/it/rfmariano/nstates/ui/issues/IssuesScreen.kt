@@ -68,6 +68,7 @@ import it.rfmariano.nstates.data.api.CensusScales
 import it.rfmariano.nstates.data.model.Issue
 import it.rfmariano.nstates.data.model.IssueOption
 import it.rfmariano.nstates.data.model.IssueResult
+import it.rfmariano.nstates.data.model.PolicyDetails
 import it.rfmariano.nstates.data.model.RankingChange
 import android.content.ClipData
 import androidx.compose.ui.platform.ClipEntry
@@ -884,37 +885,57 @@ private fun ResultContent(
         }
 
         // New policies
-        if (result.newPolicies.isNotEmpty()) {
+        if (result.newPolicyDetails.isNotEmpty() || result.newPolicies.isNotEmpty()) {
             Text(
                 text = "New Policies",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(8.dp))
-            result.newPolicies.forEach { policy ->
-                Text(
-                    text = "+ $policy",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            if (result.newPolicyDetails.isNotEmpty()) {
+                result.newPolicyDetails.forEach { policy ->
+                    PolicyDetailsBlock(
+                        policy = policy,
+                        prefix = "+",
+                        titleColor = MaterialTheme.colorScheme.primary
+                    )
+                }
+            } else {
+                result.newPolicies.forEach { policy ->
+                    Text(
+                        text = "+ $policy",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
 
         // Removed policies
-        if (result.removedPolicies.isNotEmpty()) {
+        if (result.removedPolicyDetails.isNotEmpty() || result.removedPolicies.isNotEmpty()) {
             Text(
                 text = "Removed Policies",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.error
             )
             Spacer(modifier = Modifier.height(8.dp))
-            result.removedPolicies.forEach { policy ->
-                Text(
-                    text = "- $policy",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
+            if (result.removedPolicyDetails.isNotEmpty()) {
+                result.removedPolicyDetails.forEach { policy ->
+                    PolicyDetailsBlock(
+                        policy = policy,
+                        prefix = "-",
+                        titleColor = MaterialTheme.colorScheme.error
+                    )
+                }
+            } else {
+                result.removedPolicies.forEach { policy ->
+                    Text(
+                        text = "- $policy",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -937,6 +958,24 @@ private fun ResultContent(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
+        // Headlines
+        if (result.headlines.isNotEmpty()) {
+            Text(
+                text = "Headlines",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            result.headlines.forEach { headline ->
+                Text(
+                    text = "\u2022 $headline",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         // Dismiss button
         Button(
             onClick = onDismiss,
@@ -945,6 +984,38 @@ private fun ResultContent(
             Text("Done")
         }
     }
+}
+
+@Composable
+private fun PolicyDetailsBlock(
+    policy: PolicyDetails,
+    prefix: String,
+    titleColor: androidx.compose.ui.graphics.Color
+) {
+    if (policy.name.isNotBlank()) {
+        Text(
+            text = "$prefix ${policy.name}",
+            style = MaterialTheme.typography.bodySmall,
+            color = titleColor,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+    if (policy.category.isNotBlank() || policy.pic.isNotBlank()) {
+        val meta = listOf(policy.category, policy.pic).filter { it.isNotBlank() }.joinToString(" • ")
+        Text(
+            text = meta,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    if (policy.description.isNotBlank()) {
+        Text(
+            text = italicizeHtmlItalics(policy.description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    Spacer(modifier = Modifier.height(6.dp))
 }
 
 @Composable

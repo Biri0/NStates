@@ -40,7 +40,17 @@ data class IssueResult(
     val reclassifications: List<Reclassification> = emptyList(),
     val newPolicies: List<String> = emptyList(),
     val removedPolicies: List<String> = emptyList(),
-    val unlocks: List<String> = emptyList()
+    val unlocks: List<String> = emptyList(),
+    val newPolicyDetails: List<PolicyDetails> = emptyList(),
+    val removedPolicyDetails: List<PolicyDetails> = emptyList(),
+    val headlines: List<String> = emptyList()
+)
+
+data class PolicyDetails(
+    val name: String = "",
+    val pic: String = "",
+    val category: String = "",
+    val description: String = ""
 )
 
 /**

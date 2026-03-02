@@ -4,6 +4,7 @@ import it.rfmariano.nstates.data.model.Issue
 import it.rfmariano.nstates.data.model.IssueOption
 import it.rfmariano.nstates.data.model.IssueResult
 import it.rfmariano.nstates.data.model.IssuesData
+import it.rfmariano.nstates.data.model.PolicyDetails
 import it.rfmariano.nstates.data.model.RankingChange
 import it.rfmariano.nstates.data.model.Reclassification
 import org.xmlpull.v1.XmlPullParser
@@ -148,6 +149,9 @@ class IssueXmlParser @Inject constructor() {
         val newPolicies = mutableListOf<String>()
         val removedPolicies = mutableListOf<String>()
         val unlocks = mutableListOf<String>()
+        val newPolicyDetails = mutableListOf<PolicyDetails>()
+        val removedPolicyDetails = mutableListOf<PolicyDetails>()
+        val headlines = mutableListOf<String>()
 
         var inIssue = false
         var inRankings = false
@@ -155,15 +159,18 @@ class IssueXmlParser @Inject constructor() {
         var inNewPolicies = false
         var inRemovedPolicies = false
         var inUnlocks = false
+        var inHeadlines = false
 
         var eventType = parser.eventType
         while (eventType != XmlPullParser.END_DOCUMENT) {
             if (eventType == XmlPullParser.START_TAG) {
                 when (parser.name) {
                     "ISSUE" -> inIssue = true
-                    "OK" -> if (inIssue) ok = true.also { parser.nextText() }
+                    "OK" -> if (inIssue) ok = parser.nextText().trim() == "1"
                     "ERROR" -> if (inIssue) error = parser.nextText()
-                    "DESC" -> if (inIssue) description = parser.nextText()
+                    "DESC" -> if (inIssue && !inNewPolicies && !inRemovedPolicies) {
+                        description = parser.nextText()
+                    }
                     "RANKINGS" -> if (inIssue) inRankings = true
                     "RANK" -> if (inRankings) {
                         rankings.add(parseRankingChange(parser))
@@ -175,14 +182,22 @@ class IssueXmlParser @Inject constructor() {
                     "NEW_POLICIES" -> if (inIssue) inNewPolicies = true
                     "REMOVED_POLICIES" -> if (inIssue) inRemovedPolicies = true
                     "POLICY" -> {
-                        val policyName = parser.nextText()
+                        val policy = parsePolicyDetails(parser)
                         when {
-                            inNewPolicies -> newPolicies.add(policyName)
-                            inRemovedPolicies -> removedPolicies.add(policyName)
+                            inNewPolicies -> {
+                                newPolicyDetails.add(policy)
+                                if (policy.name.isNotBlank()) newPolicies.add(policy.name)
+                            }
+                            inRemovedPolicies -> {
+                                removedPolicyDetails.add(policy)
+                                if (policy.name.isNotBlank()) removedPolicies.add(policy.name)
+                            }
                         }
                     }
                     "UNLOCKS" -> if (inIssue) inUnlocks = true
-                    "UNLOCK" -> if (inUnlocks) unlocks.add(parser.nextText())
+                    "UNLOCK", "BANNER" -> if (inUnlocks) unlocks.add(parser.nextText())
+                    "HEADLINES" -> if (inIssue) inHeadlines = true
+                    "HEADLINE" -> if (inHeadlines) headlines.add(parser.nextText())
                 }
             } else if (eventType == XmlPullParser.END_TAG) {
                 when (parser.name) {
@@ -192,6 +207,7 @@ class IssueXmlParser @Inject constructor() {
                     "NEW_POLICIES" -> inNewPolicies = false
                     "REMOVED_POLICIES" -> inRemovedPolicies = false
                     "UNLOCKS" -> inUnlocks = false
+                    "HEADLINES" -> inHeadlines = false
                 }
             }
             eventType = parser.next()
@@ -205,7 +221,53 @@ class IssueXmlParser @Inject constructor() {
             reclassifications = reclassifications,
             newPolicies = newPolicies,
             removedPolicies = removedPolicies,
-            unlocks = unlocks
+            unlocks = unlocks,
+            newPolicyDetails = newPolicyDetails,
+            removedPolicyDetails = removedPolicyDetails,
+            headlines = headlines
+        )
+    }
+
+    private fun parsePolicyDetails(parser: XmlPullParser): PolicyDetails {
+        var name = ""
+        var pic = ""
+        var category = ""
+        var description = ""
+        var directText = ""
+
+        var eventType = parser.next()
+        while (eventType != XmlPullParser.END_DOCUMENT) {
+            when (eventType) {
+                XmlPullParser.START_TAG -> {
+                    when (parser.name) {
+                        "NAME" -> name = parser.nextText()
+                        "PIC" -> pic = parser.nextText()
+                        "CAT" -> category = parser.nextText()
+                        "DESC" -> description = parser.nextText()
+                        else -> skipTag(parser)
+                    }
+                }
+                XmlPullParser.TEXT -> {
+                    if (directText.isBlank()) {
+                        directText = parser.text.orEmpty().trim()
+                    }
+                }
+                XmlPullParser.END_TAG -> {
+                    if (parser.name == "POLICY") break
+                }
+            }
+            eventType = parser.next()
+        }
+
+        if (name.isBlank()) {
+            name = directText
+        }
+
+        return PolicyDetails(
+            name = name,
+            pic = pic,
+            category = category,
+            description = description
         )
     }
 
@@ -261,5 +323,16 @@ class IssueXmlParser @Inject constructor() {
             from = from,
             to = to
         )
+    }
+
+    private fun skipTag(parser: XmlPullParser) {
+        if (parser.eventType != XmlPullParser.START_TAG) return
+        var depth = 1
+        while (depth > 0) {
+            when (parser.next()) {
+                XmlPullParser.START_TAG -> depth++
+                XmlPullParser.END_TAG -> depth--
+            }
+        }
     }
 }
