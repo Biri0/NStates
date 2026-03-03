@@ -76,6 +76,17 @@ class SettingsDataSource @Inject constructor(
         }
     }
 
+    val openRouterZdrOnly: Flow<Boolean> = context.dataStore.data
+        .map { prefs ->
+            prefs[KEY_OPENROUTER_ZDR_ONLY] ?: DEFAULT_OPENROUTER_ZDR_ONLY
+        }
+
+    suspend fun setOpenRouterZdrOnly(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_OPENROUTER_ZDR_ONLY] = enabled
+        }
+    }
+
     val pinnedNations: Flow<List<String>> = context.dataStore.data
         .map { prefs ->
             parsePinnedNations(prefs[KEY_PINNED_NATIONS])
@@ -130,6 +141,8 @@ class SettingsDataSource @Inject constructor(
         private val KEY_ISSUE_NOTIFICATIONS = booleanPreferencesKey("issue_notifications")
         private const val DEFAULT_ISSUE_NOTIFICATIONS = false
         private val KEY_OPENROUTER_API_KEY = stringPreferencesKey("openrouter_api_key")
+        private val KEY_OPENROUTER_ZDR_ONLY = booleanPreferencesKey("openrouter_zdr_only")
+        private const val DEFAULT_OPENROUTER_ZDR_ONLY = false
         private val KEY_PINNED_NATIONS = stringPreferencesKey("pinned_nations")
         private const val PINNED_NATIONS_SEPARATOR = "\n"
     }

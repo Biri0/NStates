@@ -33,13 +33,15 @@ class SettingsViewModel @Inject constructor(
                 repository.activeNation,
                 settingsDataSource.initialPage,
                 settingsDataSource.issueNotificationsEnabled,
-                settingsDataSource.openRouterApiKey
-            ) { activeNation, initialPage, issueNotificationsEnabled, openRouterApiKey ->
+                settingsDataSource.openRouterApiKey,
+                settingsDataSource.openRouterZdrOnly
+            ) { activeNation, initialPage, issueNotificationsEnabled, openRouterApiKey, openRouterZdrOnly ->
                 SettingsSnapshot(
                     activeNation = activeNation,
                     initialPage = initialPage,
                     issueNotificationsEnabled = issueNotificationsEnabled,
-                    openRouterApiKey = openRouterApiKey
+                    openRouterApiKey = openRouterApiKey,
+                    openRouterZdrOnly = openRouterZdrOnly
                 )
             }.collectLatest { snapshot ->
                 updateState(snapshot)
@@ -80,6 +82,16 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setOpenRouterZdrOnly(enabled: Boolean) {
+        val current = _uiState.value
+        if (current is SettingsUiState.Ready) {
+            _uiState.value = current.copy(openRouterZdrOnly = enabled)
+            viewModelScope.launch {
+                settingsDataSource.setOpenRouterZdrOnly(enabled)
+            }
+        }
+    }
+
     fun logout() {
         repository.logout()
     }
@@ -97,7 +109,8 @@ class SettingsViewModel @Inject constructor(
                     activeNation = repository.getCurrentNationName(),
                     initialPage = current.initialPage,
                     issueNotificationsEnabled = current.issueNotificationsEnabled,
-                    openRouterApiKey = current.openRouterApiKey
+                    openRouterApiKey = current.openRouterApiKey,
+                    openRouterZdrOnly = current.openRouterZdrOnly
                 )
             )
         }
@@ -113,7 +126,8 @@ class SettingsViewModel @Inject constructor(
             accounts = accounts,
             initialPage = snapshot.initialPage,
             issueNotificationsEnabled = snapshot.issueNotificationsEnabled,
-            openRouterApiKey = snapshot.openRouterApiKey
+            openRouterApiKey = snapshot.openRouterApiKey,
+            openRouterZdrOnly = snapshot.openRouterZdrOnly
         )
     }
 
@@ -121,6 +135,7 @@ class SettingsViewModel @Inject constructor(
         val activeNation: String?,
         val initialPage: String,
         val issueNotificationsEnabled: Boolean,
-        val openRouterApiKey: String
+        val openRouterApiKey: String,
+        val openRouterZdrOnly: Boolean
     )
 }

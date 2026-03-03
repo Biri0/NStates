@@ -129,8 +129,10 @@ fun SettingsScreen(
                     initialPage = state.initialPage,
                     issueNotificationsEnabled = state.issueNotificationsEnabled,
                     openRouterApiKey = state.openRouterApiKey,
+                    openRouterZdrOnly = state.openRouterZdrOnly,
                     onInitialPageChange = { viewModel.setInitialPage(it) },
                     onOpenRouterApiKeyChange = viewModel::setOpenRouterApiKey,
+                    onOpenRouterZdrOnlyChange = viewModel::setOpenRouterZdrOnly,
                     onNotificationsToggle = { enabled ->
                         if (enabled) {
                             if (hasNotificationPermission) {
@@ -191,8 +193,10 @@ private fun SettingsContent(
     initialPage: String,
     issueNotificationsEnabled: Boolean,
     openRouterApiKey: String,
+    openRouterZdrOnly: Boolean,
     onInitialPageChange: (String) -> Unit,
     onOpenRouterApiKeyChange: (String) -> Unit,
+    onOpenRouterZdrOnlyChange: (Boolean) -> Unit,
     onNotificationsToggle: (Boolean) -> Unit,
     onAccountSelected: (String) -> Unit,
     onAddNation: () -> Unit,
@@ -371,6 +375,21 @@ private fun SettingsContent(
                     placeholder = { Text("sk-or-v1-...") },
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "ZDR-only providers",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = openRouterZdrOnly,
+                        onCheckedChange = onOpenRouterZdrOnlyChange
+                    )
+                }
             }
         }
 

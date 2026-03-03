@@ -7,6 +7,7 @@ sealed interface SettingsUiState {
         val accounts: List<String>,
         val initialPage: String,
         val issueNotificationsEnabled: Boolean,
-        val openRouterApiKey: String
+        val openRouterApiKey: String,
+        val openRouterZdrOnly: Boolean
     ) : SettingsUiState
 }

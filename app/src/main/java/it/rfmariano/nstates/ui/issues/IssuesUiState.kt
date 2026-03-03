@@ -41,5 +41,6 @@ data class IssueChatUiState(
     val attempt: Int = 0,
     val maxAttempts: Int = 3,
     val errorMessage: String? = null,
-    val isApiKeyConfigured: Boolean = false
+    val isApiKeyConfigured: Boolean = false,
+    val openRouterZdrOnly: Boolean = false
 )

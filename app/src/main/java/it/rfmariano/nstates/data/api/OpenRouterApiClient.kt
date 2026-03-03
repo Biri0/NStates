@@ -30,9 +30,10 @@ class OpenRouterApiClient @Inject constructor(
     fun streamChat(
         apiKey: String,
         model: String,
-        messages: List<ChatMessage>
+        messages: List<ChatMessage>,
+        openRouterZdrOnly: Boolean
     ): Flow<String> = channelFlow {
-        val requestBody = JSONObject()
+        val requestBodyJson = JSONObject()
             .put("model", model)
             .put("stream", true)
             .put(
@@ -42,10 +43,16 @@ class OpenRouterApiClient @Inject constructor(
                         JSONObject()
                             .put("role", it.role)
                             .put("content", it.content)
-                    }
+                        }
                 )
             )
-            .toString()
+        if (openRouterZdrOnly) {
+            requestBodyJson.put(
+                "provider",
+                JSONObject().put("zdr", true)
+            )
+        }
+        val requestBody = requestBodyJson.toString()
 
         val statement = httpClient.preparePost(BASE_URL) {
             contentType(ContentType.Application.Json)

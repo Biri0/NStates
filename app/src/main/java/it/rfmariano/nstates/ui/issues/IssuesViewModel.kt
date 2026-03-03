@@ -83,6 +83,14 @@ class IssuesViewModel @Inject constructor(
                 )
             }
         }
+
+        viewModelScope.launch {
+            settingsDataSource.openRouterZdrOnly.collectLatest { enabled ->
+                _chatState.value = _chatState.value.copy(
+                    openRouterZdrOnly = enabled
+                )
+            }
+        }
     }
 
     fun loadIssues() {
@@ -249,7 +257,8 @@ class IssuesViewModel @Inject constructor(
                     issueChatRepository.streamAssistantReply(
                         issue = issue,
                         messages = conversation,
-                        apiKey = apiKey
+                        apiKey = apiKey,
+                        openRouterZdrOnly = _chatState.value.openRouterZdrOnly
                     ).collect { token ->
                         collected.append(token)
                         _chatState.value = _chatState.value.copy(
