@@ -242,6 +242,15 @@ class NationRepository @Inject constructor(
             autologin = authLocal.autologin
         ).onSuccess { (_, apiResult) ->
             apiResult.authHeaders.pin?.let { authLocal.pin = it }
-        }.map { (result, _) -> result }
+        }.mapCatching { (result, _) ->
+            val bannerDetails = issueApi
+                .fetchBannerDetails(
+                    bannerCodes = result.unlocks,
+                    userAgent = userAgent
+                )
+                .getOrElse { emptyList() }
+
+            result.copy(unlockedBanners = bannerDetails)
+        }
     }
 }

@@ -43,7 +43,14 @@ data class IssueResult(
     val unlocks: List<String> = emptyList(),
     val newPolicyDetails: List<PolicyDetails> = emptyList(),
     val removedPolicyDetails: List<PolicyDetails> = emptyList(),
-    val headlines: List<String> = emptyList()
+    val headlines: List<String> = emptyList(),
+    val unlockedBanners: List<BannerDetails> = emptyList()
+)
+
+data class BannerDetails(
+    val id: String,
+    val name: String,
+    val validity: String
 )
 
 data class PolicyDetails(

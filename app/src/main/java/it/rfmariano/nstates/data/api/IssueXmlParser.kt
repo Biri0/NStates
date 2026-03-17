@@ -4,6 +4,7 @@ import it.rfmariano.nstates.data.model.Issue
 import it.rfmariano.nstates.data.model.IssueOption
 import it.rfmariano.nstates.data.model.IssueResult
 import it.rfmariano.nstates.data.model.IssuesData
+import it.rfmariano.nstates.data.model.BannerDetails
 import it.rfmariano.nstates.data.model.PolicyDetails
 import it.rfmariano.nstates.data.model.RankingChange
 import it.rfmariano.nstates.data.model.Reclassification
@@ -225,6 +226,53 @@ class IssueXmlParser @Inject constructor() {
             newPolicyDetails = newPolicyDetails,
             removedPolicyDetails = removedPolicyDetails,
             headlines = headlines
+        )
+    }
+
+    /**
+     * Parse the response from `q=banner;banner=<code[,code...]>`.
+     */
+    fun parseBanners(xml: String): List<BannerDetails> {
+        val factory = XmlPullParserFactory.newInstance()
+        factory.isNamespaceAware = false
+        val parser = factory.newPullParser()
+        parser.setInput(StringReader(replaceHtmlEntities(xml)))
+
+        val banners = mutableListOf<BannerDetails>()
+
+        var eventType = parser.eventType
+        while (eventType != XmlPullParser.END_DOCUMENT) {
+            if (eventType == XmlPullParser.START_TAG && parser.name == "BANNER") {
+                banners.add(parseBanner(parser))
+            }
+            eventType = parser.next()
+        }
+
+        return banners.filter { it.id.isNotBlank() && it.name.isNotBlank() }
+    }
+
+    private fun parseBanner(parser: XmlPullParser): BannerDetails {
+        val id = parser.getAttributeValue(null, "id").orEmpty()
+        var name = ""
+        var validity = ""
+
+        var eventType = parser.next()
+        while (eventType != XmlPullParser.END_DOCUMENT) {
+            if (eventType == XmlPullParser.START_TAG) {
+                when (parser.name) {
+                    "NAME" -> name = parser.nextText()
+                    "VALIDITY" -> validity = parser.nextText()
+                }
+            } else if (eventType == XmlPullParser.END_TAG && parser.name == "BANNER") {
+                break
+            }
+            eventType = parser.next()
+        }
+
+        return BannerDetails(
+            id = id,
+            name = name,
+            validity = validity
         )
     }
 

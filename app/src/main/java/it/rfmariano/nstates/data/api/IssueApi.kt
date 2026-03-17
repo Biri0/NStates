@@ -1,7 +1,10 @@
 package it.rfmariano.nstates.data.api
 
+import it.rfmariano.nstates.data.model.BannerDetails
 import it.rfmariano.nstates.data.model.IssueResult
 import it.rfmariano.nstates.data.model.IssuesData
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,6 +20,8 @@ class IssueApi @Inject constructor(
     private val client: NationStatesApiClient,
     private val xmlParser: IssueXmlParser
 ) {
+    private val bannerCacheMutex = Mutex()
+    private val bannerCache = mutableMapOf<String, BannerDetails>()
 
     /**
      * Fetch the nation's current issues and next issue time.
@@ -79,6 +84,50 @@ class IssueApi @Inject constructor(
                 throw IssueAnswerParseException(rawResponse = result.body, cause = error)
             }
             Pair(issueResult, result)
+        }
+    }
+
+    /**
+     * Fetch banner metadata (name + validity) for one or more banner codes.
+     * Uses a session-scoped in-memory cache to avoid repeated requests.
+     */
+    suspend fun fetchBannerDetails(
+        bannerCodes: List<String>,
+        userAgent: String
+    ): Result<List<BannerDetails>> {
+        val requestedCodes = bannerCodes
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+
+        if (requestedCodes.isEmpty()) {
+            return Result.success(emptyList())
+        }
+
+        val cached = bannerCacheMutex.withLock {
+            requestedCodes.mapNotNull { bannerCache[it] }
+        }
+        val missingCodes = requestedCodes.filterNot { code -> cached.any { it.id == code } }
+
+        if (missingCodes.isEmpty()) {
+            return Result.success(cached.sortedBy { requestedCodes.indexOf(it.id) })
+        }
+
+        return client.get(
+            userAgent = userAgent,
+            params = mapOf(
+                "q" to "banner",
+                "banner" to missingCodes.joinToString(",")
+            )
+        ).mapCatching { apiResult ->
+            val fetched = xmlParser.parseBanners(apiResult.body)
+            bannerCacheMutex.withLock {
+                fetched.forEach { banner -> bannerCache[banner.id] = banner }
+            }
+
+            requestedCodes.mapNotNull { code ->
+                fetched.firstOrNull { it.id == code } ?: cached.firstOrNull { it.id == code }
+            }
         }
     }
 }
