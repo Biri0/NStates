@@ -16,6 +16,14 @@ sealed interface IssuesUiState {
     data class Error(val message: String) : IssuesUiState
 }
 
+data class IssueTranslationUiState(
+    val isToggleVisible: Boolean = false,
+    val isTranslated: Boolean = false,
+    val isTranslating: Boolean = false,
+    val targetLanguageCode: String = "",
+    val errorMessage: String? = null
+)
+
 /**
  * State for the issue action (answering/dismissing) flow.
  */

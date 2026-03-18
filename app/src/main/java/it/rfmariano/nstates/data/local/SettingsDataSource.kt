@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import it.rfmariano.nstates.data.translation.DeepLLanguageSupport
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -87,6 +88,55 @@ class SettingsDataSource @Inject constructor(
         }
     }
 
+    val deepLApiKey: Flow<String> = context.dataStore.data
+        .map { prefs ->
+            prefs[KEY_DEEPL_API_KEY] ?: ""
+        }
+
+    suspend fun setDeepLApiKey(apiKey: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_DEEPL_API_KEY] = apiKey.trim()
+        }
+    }
+
+    val issueTranslationEnabled: Flow<Boolean> = context.dataStore.data
+        .map { prefs ->
+            prefs[KEY_ISSUE_TRANSLATION_ENABLED] ?: DEFAULT_ISSUE_TRANSLATION_ENABLED
+        }
+
+    suspend fun setIssueTranslationEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_ISSUE_TRANSLATION_ENABLED] = enabled
+        }
+    }
+
+    val issueTranslationTargetLang: Flow<String> = context.dataStore.data
+        .map { prefs ->
+            val stored = prefs[KEY_ISSUE_TRANSLATION_TARGET_LANG]
+            if (stored.isNullOrBlank()) {
+                DEFAULT_ISSUE_TRANSLATION_TARGET_LANG
+            } else {
+                DeepLLanguageSupport.normalizeOrDefault(stored)
+            }
+        }
+
+    suspend fun setIssueTranslationTargetLang(languageCode: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_ISSUE_TRANSLATION_TARGET_LANG] = DeepLLanguageSupport.normalizeOrDefault(languageCode)
+        }
+    }
+
+    val issueTranslationAutoEnabled: Flow<Boolean> = context.dataStore.data
+        .map { prefs ->
+            prefs[KEY_ISSUE_TRANSLATION_AUTO_ENABLED] ?: DEFAULT_ISSUE_TRANSLATION_AUTO_ENABLED
+        }
+
+    suspend fun setIssueTranslationAutoEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_ISSUE_TRANSLATION_AUTO_ENABLED] = enabled
+        }
+    }
+
     val pinnedNations: Flow<List<String>> = context.dataStore.data
         .map { prefs ->
             parsePinnedNations(prefs[KEY_PINNED_NATIONS])
@@ -143,7 +193,14 @@ class SettingsDataSource @Inject constructor(
         private val KEY_OPENROUTER_API_KEY = stringPreferencesKey("openrouter_api_key")
         private val KEY_OPENROUTER_ZDR_ONLY = booleanPreferencesKey("openrouter_zdr_only")
         private const val DEFAULT_OPENROUTER_ZDR_ONLY = false
+        private val KEY_DEEPL_API_KEY = stringPreferencesKey("deepl_api_key")
+        private val KEY_ISSUE_TRANSLATION_ENABLED = booleanPreferencesKey("issue_translation_enabled")
+        private const val DEFAULT_ISSUE_TRANSLATION_ENABLED = false
+        private val KEY_ISSUE_TRANSLATION_TARGET_LANG = stringPreferencesKey("issue_translation_target_lang")
+        private val KEY_ISSUE_TRANSLATION_AUTO_ENABLED = booleanPreferencesKey("issue_translation_auto_enabled")
+        private const val DEFAULT_ISSUE_TRANSLATION_AUTO_ENABLED = false
         private val KEY_PINNED_NATIONS = stringPreferencesKey("pinned_nations")
         private const val PINNED_NATIONS_SEPARATOR = "\n"
+        val DEFAULT_ISSUE_TRANSLATION_TARGET_LANG = DeepLLanguageSupport.defaultTargetForLocale()
     }
 }

@@ -10,6 +10,7 @@ NStates is an unofficial Android client for [NationStates](https://www.nationsta
 - Nation overview with flag, government, economy, and other key stats
 - Issue browser with support for answering or dismissing issues
 - Optional AI issue chat powered by your own OpenRouter API key
+- Optional issue translation powered by your own DeepL API key
 - Nation search with pinned favorites
 - Multi-account support
 - Notifications for new issues
@@ -30,6 +31,7 @@ Google Play requires **12 testers for 14 days**, so if you want to install the t
 - Android 8.0 or newer
 - A NationStates account for login
 - An OpenRouter API key if you want to use the optional AI issue chat
+- A DeepL API key if you want to enable issue translation
 
 ## What the app does
 

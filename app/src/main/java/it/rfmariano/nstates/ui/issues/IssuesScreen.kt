@@ -35,6 +35,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -86,6 +87,7 @@ fun IssuesScreen(
     val actionState by viewModel.actionState.collectAsStateWithLifecycle()
     val selectedIssue by viewModel.selectedIssue.collectAsStateWithLifecycle()
     val chatState by viewModel.chatState.collectAsStateWithLifecycle()
+    val issueTranslationState by viewModel.issueTranslationState.collectAsStateWithLifecycle()
     val userAgent by viewModel.userAgent.collectAsStateWithLifecycle()
 
     // Confirmation dialog
@@ -131,6 +133,8 @@ fun IssuesScreen(
                 viewModel.requestAnswer(currentIssue, -1)
             },
             chatState = chatState,
+            issueTranslationState = issueTranslationState,
+            onToggleIssueTranslation = viewModel::setIssueTranslationEnabledForSelectedIssue,
             onSendChatMessage = viewModel::sendChatMessage,
             onClearConversation = viewModel::clearChatConversation,
             modifier = modifier
@@ -338,6 +342,8 @@ private fun IssueDetailContent(
     onSelectOption: (Int) -> Unit,
     onDismissIssue: () -> Unit,
     chatState: IssueChatUiState,
+    issueTranslationState: IssueTranslationUiState,
+    onToggleIssueTranslation: (Boolean) -> Unit,
     onSendChatMessage: (String) -> Unit,
     onClearConversation: () -> Unit,
     modifier: Modifier = Modifier
@@ -407,6 +413,43 @@ private fun IssueDetailContent(
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface
             )
+
+            if (issueTranslationState.isToggleVisible) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Show translated text",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Target language: ${issueTranslationState.targetLanguageCode}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = issueTranslationState.isTranslated,
+                        onCheckedChange = onToggleIssueTranslation,
+                        enabled = !issueTranslationState.isTranslating
+                    )
+                }
+                if (issueTranslationState.isTranslating) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CircularProgressIndicator()
+                }
+                issueTranslationState.errorMessage?.let { message ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 

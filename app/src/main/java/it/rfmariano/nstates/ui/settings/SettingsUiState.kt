@@ -8,6 +8,10 @@ sealed interface SettingsUiState {
         val initialPage: String,
         val issueNotificationsEnabled: Boolean,
         val openRouterApiKey: String,
-        val openRouterZdrOnly: Boolean
+        val openRouterZdrOnly: Boolean,
+        val deepLApiKey: String,
+        val issueTranslationEnabled: Boolean,
+        val issueTranslationAutoEnabled: Boolean,
+        val issueTranslationTargetLang: String
     ) : SettingsUiState
 }

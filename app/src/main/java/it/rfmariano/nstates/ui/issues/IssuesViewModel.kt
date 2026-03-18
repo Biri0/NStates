@@ -9,7 +9,9 @@ import it.rfmariano.nstates.data.api.IssueAnswerParseException
 import it.rfmariano.nstates.data.local.SettingsDataSource
 import it.rfmariano.nstates.data.model.Issue
 import it.rfmariano.nstates.data.repository.IssueChatRepository
+import it.rfmariano.nstates.data.repository.IssueTranslationRepository
 import it.rfmariano.nstates.data.repository.NationRepository
+import it.rfmariano.nstates.data.translation.DeepLLanguageSupport
 import it.rfmariano.nstates.notifications.NextIssueNotificationScheduler
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -29,6 +32,7 @@ import javax.inject.Inject
 class IssuesViewModel @Inject constructor(
     private val repository: NationRepository,
     private val issueChatRepository: IssueChatRepository,
+    private val issueTranslationRepository: IssueTranslationRepository,
     private val settingsDataSource: SettingsDataSource,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
@@ -42,11 +46,19 @@ class IssuesViewModel @Inject constructor(
     /** The currently selected issue for detail view. */
     private val _selectedIssue = MutableStateFlow<Issue?>(null)
     val selectedIssue: StateFlow<Issue?> = _selectedIssue.asStateFlow()
+    private var selectedIssueOriginal: Issue? = null
+
+    private val _issueTranslationState = MutableStateFlow(IssueTranslationUiState())
+    val issueTranslationState: StateFlow<IssueTranslationUiState> = _issueTranslationState.asStateFlow()
 
     private val _chatState = MutableStateFlow(IssueChatUiState())
     val chatState: StateFlow<IssueChatUiState> = _chatState.asStateFlow()
 
     private var chatObserverJob: Job? = null
+    private var deepLApiKey: String = ""
+    private var issueTranslationEnabled: Boolean = false
+    private var issueTranslationAutoEnabled: Boolean = false
+    private var issueTranslationTargetLang: String = "EN"
 
     val userAgent: StateFlow<String> = settingsDataSource.userAgent
         .stateIn(
@@ -91,6 +103,29 @@ class IssuesViewModel @Inject constructor(
                 )
             }
         }
+
+        viewModelScope.launch {
+            combine(
+                settingsDataSource.deepLApiKey,
+                settingsDataSource.issueTranslationEnabled,
+                settingsDataSource.issueTranslationAutoEnabled,
+                settingsDataSource.issueTranslationTargetLang
+            ) { apiKey, enabled, autoEnabled, targetLang ->
+                TranslationSettingsSnapshot(
+                    apiKey = apiKey,
+                    enabled = enabled,
+                    autoEnabled = autoEnabled,
+                    targetLang = DeepLLanguageSupport.normalizeOrDefault(targetLang)
+                )
+            }.collectLatest { snapshot ->
+                deepLApiKey = snapshot.apiKey
+                issueTranslationEnabled = snapshot.enabled
+                issueTranslationAutoEnabled = snapshot.autoEnabled
+                issueTranslationTargetLang = snapshot.targetLang
+                updateIssueTranslationAvailability()
+                maybeAutoTranslateSelectedIssue()
+            }
+        }
     }
 
     fun loadIssues() {
@@ -124,12 +159,18 @@ class IssuesViewModel @Inject constructor(
     }
 
     fun selectIssue(issue: Issue) {
+        selectedIssueOriginal = issue
         _selectedIssue.value = issue
+        _issueTranslationState.value = IssueTranslationUiState()
+        updateIssueTranslationAvailability()
+        maybeAutoTranslateSelectedIssue()
         observeChat(issue.id)
     }
 
     fun clearSelectedIssue() {
+        selectedIssueOriginal = null
         _selectedIssue.value = null
+        _issueTranslationState.value = IssueTranslationUiState()
         chatObserverJob?.cancel()
         _chatState.value = _chatState.value.copy(
             messages = emptyList(),
@@ -138,6 +179,51 @@ class IssuesViewModel @Inject constructor(
             attempt = 0,
             errorMessage = null
         )
+    }
+
+    fun setIssueTranslationEnabledForSelectedIssue(enabled: Boolean) {
+        val original = selectedIssueOriginal ?: return
+        if (!canShowIssueTranslationToggle()) return
+
+        if (!enabled) {
+            _selectedIssue.value = original
+            _issueTranslationState.value = _issueTranslationState.value.copy(
+                isTranslated = false,
+                isTranslating = false,
+                errorMessage = null
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _issueTranslationState.value = _issueTranslationState.value.copy(
+                isTranslating = true,
+                errorMessage = null
+            )
+            issueTranslationRepository.translateIssues(
+                issues = listOf(original),
+                apiKey = deepLApiKey,
+                targetLang = issueTranslationTargetLang
+            ).fold(
+                onSuccess = { translatedIssues ->
+                    val translatedIssue = translatedIssues.single()
+                    _selectedIssue.value = translatedIssue
+                    _issueTranslationState.value = _issueTranslationState.value.copy(
+                        isTranslated = true,
+                        isTranslating = false,
+                        errorMessage = null
+                    )
+                },
+                onFailure = { error ->
+                    _selectedIssue.value = original
+                    _issueTranslationState.value = _issueTranslationState.value.copy(
+                        isTranslated = false,
+                        isTranslating = false,
+                        errorMessage = "Issue translation failed: ${error.message ?: "unknown error"}"
+                    )
+                }
+            )
+        }
     }
 
     /**
@@ -209,6 +295,39 @@ class IssuesViewModel @Inject constructor(
         _uiState.value = current.copy(
             issues = current.issues.filter { it.id != issueId }
         )
+    }
+
+    private fun updateIssueTranslationAvailability() {
+        val toggleVisible = canShowIssueTranslationToggle()
+        if (!toggleVisible) {
+            selectedIssueOriginal?.let { original ->
+                _selectedIssue.value = original
+            }
+        }
+        _issueTranslationState.value = if (toggleVisible) {
+            _issueTranslationState.value.copy(
+                isToggleVisible = true,
+                targetLanguageCode = issueTranslationTargetLang
+            )
+        } else {
+            IssueTranslationUiState()
+        }
+    }
+
+    private fun maybeAutoTranslateSelectedIssue() {
+        if (!issueTranslationAutoEnabled) return
+        val translationState = _issueTranslationState.value
+        if (!translationState.isToggleVisible || translationState.isTranslated || translationState.isTranslating) {
+            return
+        }
+        setIssueTranslationEnabledForSelectedIssue(enabled = true)
+    }
+
+    private fun canShowIssueTranslationToggle(): Boolean {
+        return selectedIssueOriginal != null &&
+            deepLApiKey.isNotBlank() &&
+            issueTranslationEnabled &&
+            DeepLLanguageSupport.isTranslatableTarget(issueTranslationTargetLang)
     }
 
     fun clearChatConversation() {
@@ -318,4 +437,11 @@ class IssuesViewModel @Inject constructor(
             else -> "An unknown error occurred"
         }
     }
+
+    private data class TranslationSettingsSnapshot(
+        val apiKey: String,
+        val enabled: Boolean,
+        val autoEnabled: Boolean,
+        val targetLang: String
+    )
 }

@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import it.rfmariano.nstates.data.translation.DeepLLanguageSupport
 import it.rfmariano.nstates.ui.navigation.Routes
 import kotlinx.coroutines.launch
 
@@ -130,9 +131,17 @@ fun SettingsScreen(
                     issueNotificationsEnabled = state.issueNotificationsEnabled,
                     openRouterApiKey = state.openRouterApiKey,
                     openRouterZdrOnly = state.openRouterZdrOnly,
+                    deepLApiKey = state.deepLApiKey,
+                    issueTranslationEnabled = state.issueTranslationEnabled,
+                    issueTranslationAutoEnabled = state.issueTranslationAutoEnabled,
+                    issueTranslationTargetLang = state.issueTranslationTargetLang,
                     onInitialPageChange = { viewModel.setInitialPage(it) },
                     onOpenRouterApiKeyChange = viewModel::setOpenRouterApiKey,
                     onOpenRouterZdrOnlyChange = viewModel::setOpenRouterZdrOnly,
+                    onDeepLApiKeyChange = viewModel::setDeepLApiKey,
+                    onIssueTranslationEnabledChange = viewModel::setIssueTranslationEnabled,
+                    onIssueTranslationAutoEnabledChange = viewModel::setIssueTranslationAutoEnabled,
+                    onIssueTranslationTargetLangChange = viewModel::setIssueTranslationTargetLang,
                     onNotificationsToggle = { enabled ->
                         if (enabled) {
                             if (hasNotificationPermission) {
@@ -194,9 +203,17 @@ private fun SettingsContent(
     issueNotificationsEnabled: Boolean,
     openRouterApiKey: String,
     openRouterZdrOnly: Boolean,
+    deepLApiKey: String,
+    issueTranslationEnabled: Boolean,
+    issueTranslationAutoEnabled: Boolean,
+    issueTranslationTargetLang: String,
     onInitialPageChange: (String) -> Unit,
     onOpenRouterApiKeyChange: (String) -> Unit,
     onOpenRouterZdrOnlyChange: (Boolean) -> Unit,
+    onDeepLApiKeyChange: (String) -> Unit,
+    onIssueTranslationEnabledChange: (Boolean) -> Unit,
+    onIssueTranslationAutoEnabledChange: (Boolean) -> Unit,
+    onIssueTranslationTargetLangChange: (String) -> Unit,
     onNotificationsToggle: (Boolean) -> Unit,
     onAccountSelected: (String) -> Unit,
     onAddNation: () -> Unit,
@@ -389,6 +406,143 @@ private fun SettingsContent(
                         checked = openRouterZdrOnly,
                         onCheckedChange = onOpenRouterZdrOnlyChange
                     )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Translation card
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Issue Translation",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Translate issue titles, descriptions, and options with DeepL",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = deepLApiKey,
+                    onValueChange = onDeepLApiKeyChange,
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    label = { Text("DeepL API key") },
+                    placeholder = { Text("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                val hasDeepLApiKey = deepLApiKey.isNotBlank()
+                if (!hasDeepLApiKey) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Add a DeepL API key to configure issue translation.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Enable issue translation",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = issueTranslationEnabled,
+                            onCheckedChange = onIssueTranslationEnabledChange
+                        )
+                    }
+                    if (issueTranslationEnabled) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Auto-translate on issue open",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Switch(
+                                checked = issueTranslationAutoEnabled,
+                                onCheckedChange = onIssueTranslationAutoEnabledChange
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val systemLanguageInfo = DeepLLanguageSupport.systemLanguageInfo()
+                    val systemLanguageText = "${systemLanguageInfo.name} (${systemLanguageInfo.code})"
+                    Text(
+                        text = "System language: $systemLanguageText",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (systemLanguageInfo.isTranslatable) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { onIssueTranslationTargetLangChange(systemLanguageInfo.code) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Use system language")
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "System language is not available as a DeepL target. Choose a supported language below.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    var languageExpanded by remember { mutableStateOf(false) }
+                    val selectedLanguageLabel = DeepLLanguageSupport.targetLanguages
+                        .firstOrNull { it.code == issueTranslationTargetLang }
+                        ?.let { "${it.name} (${it.code})" }
+                        ?: "Select target language"
+
+                    ExposedDropdownMenuBox(
+                        expanded = languageExpanded,
+                        onExpandedChange = { languageExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedLanguageLabel,
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageExpanded)
+                            },
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                            label = { Text("Target language") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = languageExpanded,
+                            onDismissRequest = { languageExpanded = false }
+                        ) {
+                            DeepLLanguageSupport.targetLanguages.forEach { language ->
+                                DropdownMenuItem(
+                                    text = { Text("${language.name} (${language.code})") },
+                                    onClick = {
+                                        onIssueTranslationTargetLangChange(language.code)
+                                        languageExpanded = false
+                                    },
+                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

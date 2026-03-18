@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -29,19 +28,39 @@ class SettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            combine(
+            val primarySettings = combine(
                 repository.activeNation,
                 settingsDataSource.initialPage,
                 settingsDataSource.issueNotificationsEnabled,
                 settingsDataSource.openRouterApiKey,
                 settingsDataSource.openRouterZdrOnly
             ) { activeNation, initialPage, issueNotificationsEnabled, openRouterApiKey, openRouterZdrOnly ->
-                SettingsSnapshot(
+                PrimarySettingsSnapshot(
                     activeNation = activeNation,
                     initialPage = initialPage,
                     issueNotificationsEnabled = issueNotificationsEnabled,
                     openRouterApiKey = openRouterApiKey,
                     openRouterZdrOnly = openRouterZdrOnly
+                )
+            }
+
+            combine(
+                primarySettings,
+                settingsDataSource.deepLApiKey,
+                settingsDataSource.issueTranslationEnabled,
+                settingsDataSource.issueTranslationAutoEnabled,
+                settingsDataSource.issueTranslationTargetLang
+            ) { primary, deepLApiKey, issueTranslationEnabled, issueTranslationAutoEnabled, issueTranslationTargetLang ->
+                SettingsSnapshot(
+                    activeNation = primary.activeNation,
+                    initialPage = primary.initialPage,
+                    issueNotificationsEnabled = primary.issueNotificationsEnabled,
+                    openRouterApiKey = primary.openRouterApiKey,
+                    openRouterZdrOnly = primary.openRouterZdrOnly,
+                    deepLApiKey = deepLApiKey,
+                    issueTranslationEnabled = issueTranslationEnabled,
+                    issueTranslationAutoEnabled = issueTranslationAutoEnabled,
+                    issueTranslationTargetLang = issueTranslationTargetLang
                 )
             }.collectLatest { snapshot ->
                 updateState(snapshot)
@@ -92,6 +111,46 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setDeepLApiKey(apiKey: String) {
+        val current = _uiState.value
+        if (current is SettingsUiState.Ready) {
+            _uiState.value = current.copy(deepLApiKey = apiKey)
+            viewModelScope.launch {
+                settingsDataSource.setDeepLApiKey(apiKey)
+            }
+        }
+    }
+
+    fun setIssueTranslationEnabled(enabled: Boolean) {
+        val current = _uiState.value
+        if (current is SettingsUiState.Ready) {
+            _uiState.value = current.copy(issueTranslationEnabled = enabled)
+            viewModelScope.launch {
+                settingsDataSource.setIssueTranslationEnabled(enabled)
+            }
+        }
+    }
+
+    fun setIssueTranslationTargetLang(languageCode: String) {
+        val current = _uiState.value
+        if (current is SettingsUiState.Ready) {
+            _uiState.value = current.copy(issueTranslationTargetLang = languageCode)
+            viewModelScope.launch {
+                settingsDataSource.setIssueTranslationTargetLang(languageCode)
+            }
+        }
+    }
+
+    fun setIssueTranslationAutoEnabled(enabled: Boolean) {
+        val current = _uiState.value
+        if (current is SettingsUiState.Ready) {
+            _uiState.value = current.copy(issueTranslationAutoEnabled = enabled)
+            viewModelScope.launch {
+                settingsDataSource.setIssueTranslationAutoEnabled(enabled)
+            }
+        }
+    }
+
     fun logout() {
         repository.logout()
     }
@@ -110,7 +169,11 @@ class SettingsViewModel @Inject constructor(
                     initialPage = current.initialPage,
                     issueNotificationsEnabled = current.issueNotificationsEnabled,
                     openRouterApiKey = current.openRouterApiKey,
-                    openRouterZdrOnly = current.openRouterZdrOnly
+                    openRouterZdrOnly = current.openRouterZdrOnly,
+                    deepLApiKey = current.deepLApiKey,
+                    issueTranslationEnabled = current.issueTranslationEnabled,
+                    issueTranslationAutoEnabled = current.issueTranslationAutoEnabled,
+                    issueTranslationTargetLang = current.issueTranslationTargetLang
                 )
             )
         }
@@ -127,11 +190,27 @@ class SettingsViewModel @Inject constructor(
             initialPage = snapshot.initialPage,
             issueNotificationsEnabled = snapshot.issueNotificationsEnabled,
             openRouterApiKey = snapshot.openRouterApiKey,
-            openRouterZdrOnly = snapshot.openRouterZdrOnly
+            openRouterZdrOnly = snapshot.openRouterZdrOnly,
+            deepLApiKey = snapshot.deepLApiKey,
+            issueTranslationEnabled = snapshot.issueTranslationEnabled,
+            issueTranslationAutoEnabled = snapshot.issueTranslationAutoEnabled,
+            issueTranslationTargetLang = snapshot.issueTranslationTargetLang
         )
     }
 
     private data class SettingsSnapshot(
+        val activeNation: String?,
+        val initialPage: String,
+        val issueNotificationsEnabled: Boolean,
+        val openRouterApiKey: String,
+        val openRouterZdrOnly: Boolean,
+        val deepLApiKey: String,
+        val issueTranslationEnabled: Boolean,
+        val issueTranslationAutoEnabled: Boolean,
+        val issueTranslationTargetLang: String
+    )
+
+    private data class PrimarySettingsSnapshot(
         val activeNation: String?,
         val initialPage: String,
         val issueNotificationsEnabled: Boolean,
