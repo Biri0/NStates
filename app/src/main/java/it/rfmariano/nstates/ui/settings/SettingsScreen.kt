@@ -21,7 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -50,6 +49,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import it.rfmariano.nstates.data.translation.DeepLLanguageSupport
+import it.rfmariano.nstates.ui.common.NStatesCenteredLoading
 import it.rfmariano.nstates.ui.navigation.Routes
 import kotlinx.coroutines.launch
 
@@ -106,14 +106,10 @@ fun SettingsScreen(
     ) { innerPadding ->
         when (val state = uiState) {
             is SettingsUiState.Loading -> {
-                Box(
+                NStatesCenteredLoading(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                        .padding(innerPadding)
+                )
             }
             is SettingsUiState.Ready -> {
                 if (lastNationName == null) {

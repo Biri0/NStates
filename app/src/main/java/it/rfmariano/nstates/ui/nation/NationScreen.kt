@@ -12,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import it.rfmariano.nstates.ui.common.NStatesCenteredLoading
 import it.rfmariano.nstates.ui.common.NationDetailsContent
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,14 +57,10 @@ fun NationScreen(
     ) { innerPadding ->
         when (val state = uiState) {
             is NationUiState.Loading -> {
-                Box(
+                NStatesCenteredLoading(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                        .padding(innerPadding)
+                )
             }
 
             is NationUiState.Error -> {

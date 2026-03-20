@@ -25,7 +25,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -73,6 +72,8 @@ import it.rfmariano.nstates.data.model.IssueOption
 import it.rfmariano.nstates.data.model.IssueResult
 import it.rfmariano.nstates.data.model.PolicyDetails
 import it.rfmariano.nstates.data.model.RankingChange
+import it.rfmariano.nstates.ui.common.NStatesCenteredLoading
+import it.rfmariano.nstates.ui.common.NStatesInlineLoading
 import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.abs
@@ -176,14 +177,10 @@ private fun IssuesListContent(
     ) { innerPadding ->
         when (uiState) {
             is IssuesUiState.Loading -> {
-                Box(
+                NStatesCenteredLoading(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                        .padding(innerPadding)
+                )
             }
             is IssuesUiState.Error -> {
                 Box(
@@ -439,7 +436,7 @@ private fun IssueDetailContent(
                 }
                 if (issueTranslationState.isTranslating) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    CircularProgressIndicator()
+                    NStatesInlineLoading(size = 20.dp)
                 }
                 issueTranslationState.errorMessage?.let { message ->
                     Spacer(modifier = Modifier.height(8.dp))
@@ -566,7 +563,10 @@ private fun IssueDetailContent(
 
                 if (chatState.isSending) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.width(18.dp).height(18.dp))
+                        NStatesInlineLoading(
+                            modifier = Modifier.width(18.dp).height(18.dp),
+                            size = 18.dp
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Requesting... attempt ${chatState.attempt}/${chatState.maxAttempts}",
@@ -707,7 +707,7 @@ private fun SubmittingDialog() {
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator()
+                NStatesInlineLoading(size = 28.dp)
             }
         },
         confirmButton = { /* no buttons while submitting */ }
