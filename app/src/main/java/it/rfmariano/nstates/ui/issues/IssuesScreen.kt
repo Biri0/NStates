@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -68,6 +69,7 @@ import coil3.network.httpHeaders
 import coil3.request.ImageRequest
 import it.rfmariano.nstates.data.api.CensusScales
 import it.rfmariano.nstates.data.model.Issue
+import it.rfmariano.nstates.data.model.IssueChatRole
 import it.rfmariano.nstates.data.model.IssueOption
 import it.rfmariano.nstates.data.model.IssueResult
 import it.rfmariano.nstates.data.model.PolicyDetails
@@ -529,33 +531,24 @@ private fun IssueDetailContent(
                     )
                 } else {
                     chatState.messages.forEach { message ->
-                        val isUser = message.role.name == "USER"
-                        if (isUser) {
-                            Text(
-                                text = "You: ${message.content}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            Text(
-                                text = buildAnnotatedString {
-                                    append("AI: ")
-                                    append(boldMarkdownToAnnotatedString(message.content))
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        val isUser = message.role == IssueChatRole.USER
+                        ChatMessageBubble(
+                            roleLabel = if (isUser) "You" else "AI",
+                            isUser = isUser,
+                            content = if (isUser) {
+                                AnnotatedString(message.content)
+                            } else {
+                                boldMarkdownToAnnotatedString(message.content)
+                            }
+                        )
                         Spacer(modifier = Modifier.height(6.dp))
                     }
                     if (chatState.streamingMessage.isNotBlank()) {
-                        Text(
-                            text = buildAnnotatedString {
-                                append("AI: ")
-                                append(boldMarkdownToAnnotatedString(chatState.streamingMessage))
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        ChatMessageBubble(
+                            roleLabel = "AI",
+                            isUser = false,
+                            content = boldMarkdownToAnnotatedString(chatState.streamingMessage),
+                            footer = "Writing..."
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                     }
@@ -695,6 +688,61 @@ private fun ConfirmAnswerDialog(
             }
         }
     )
+}
+
+@Composable
+private fun ChatMessageBubble(
+    roleLabel: String,
+    isUser: Boolean,
+    content: AnnotatedString,
+    footer: String? = null
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(0.86f),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isUser) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                }
+            )
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                Text(
+                    text = roleLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isUser) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = content,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isUser) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+                footer?.let {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.offset(x = 1.dp)
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
