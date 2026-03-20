@@ -123,13 +123,15 @@ class NationRepository @Inject constructor(
      * Returns cached data if available to avoid redundant API calls
      * right after login.
      */
-    suspend fun fetchCurrentNation(): Result<NationData> {
+    suspend fun fetchCurrentNation(forceRefresh: Boolean = false): Result<NationData> {
         val nationName = authLocal.nationName
             ?: return Result.failure(IllegalStateException("Not logged in"))
 
-        // Return cached data if we already have it (e.g. just logged in)
-        cachedNation?.let { cached ->
-            return Result.success(cached)
+        if (!forceRefresh) {
+            // Return cached data if we already have it (e.g. just logged in)
+            cachedNation?.let { cached ->
+                return Result.success(cached)
+            }
         }
 
         return resumeSession()
@@ -242,6 +244,7 @@ class NationRepository @Inject constructor(
             autologin = authLocal.autologin
         ).onSuccess { (_, apiResult) ->
             apiResult.authHeaders.pin?.let { authLocal.pin = it }
+            cachedNation = null
         }.mapCatching { (result, _) ->
             val bannerDetails = issueApi
                 .fetchBannerDetails(

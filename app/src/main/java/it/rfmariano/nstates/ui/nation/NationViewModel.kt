@@ -41,9 +41,15 @@ class NationViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadNationInternal() {
+    fun refreshNation() {
+        viewModelScope.launch {
+            loadNationInternal(forceRefresh = true)
+        }
+    }
+
+    private suspend fun loadNationInternal(forceRefresh: Boolean = false) {
         _uiState.value = NationUiState.Loading
-        repository.fetchCurrentNation()
+        repository.fetchCurrentNation(forceRefresh = forceRefresh)
             .onSuccess { nation ->
                 val userAgent = settingsDataSource.userAgent.first()
                 _uiState.value = NationUiState.Success(nation, userAgent)
