@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -57,6 +58,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -79,6 +81,8 @@ import it.rfmariano.nstates.ui.common.NStatesInlineLoading
 import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.abs
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -509,11 +513,26 @@ private fun IssueDetailContent(
             HorizontalDivider()
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = "Issue AI Chat",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Issue AI Chat",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(
+                    onClick = onClearConversation,
+                    enabled = !chatState.isSending
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Clear chat conversation"
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
 
             if (!chatState.isApiKeyConfigured) {
@@ -578,31 +597,38 @@ private fun IssueDetailContent(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                OutlinedTextField(
-                    value = chatInput,
-                    onValueChange = { chatInput = it },
-                    label = { Text("Message") },
+                val canSend = chatInput.isNotBlank() && !chatState.isSending
+                fun sendCurrentMessage() {
+                    if (!canSend) return
+                    val text = chatInput
+                    chatInput = ""
+                    onSendChatMessage(text)
+                }
+
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !chatState.isSending
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Button(
-                        onClick = {
-                            val text = chatInput
-                            chatInput = ""
-                            onSendChatMessage(text)
-                        },
-                        enabled = chatInput.isNotBlank() && !chatState.isSending
-                    ) {
-                        Text("Send")
-                    }
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = chatInput,
+                        onValueChange = { chatInput = it },
+                        label = { Text("Message") },
+                        modifier = Modifier.weight(1f),
+                        enabled = !chatState.isSending,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(
+                            onSend = { sendCurrentMessage() }
+                        )
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(
-                        onClick = onClearConversation,
-                        enabled = !chatState.isSending
+                    IconButton(
+                        onClick = { sendCurrentMessage() },
+                        enabled = canSend
                     ) {
-                        Text("Clear")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send message"
+                        )
                     }
                 }
             }
