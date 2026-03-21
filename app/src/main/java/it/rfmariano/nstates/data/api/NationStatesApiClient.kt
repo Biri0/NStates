@@ -50,9 +50,39 @@ class NationStatesApiClient @Inject constructor(
         password: String? = null,
         autologin: String? = null,
         pin: String? = null
-    ): Result<ApiResult> = makeRequest(userAgent, params, password, autologin, pin)
+    ): Result<ApiResult> = executeWithVersionFallback(
+        baseParams = params,
+        request = { effectiveParams ->
+            makeRequest(
+                userAgent = userAgent,
+                params = effectiveParams,
+                password = password,
+                autologin = autologin,
+                pin = pin
+            )
+        }
+    )
 
     suspend fun post(
+        userAgent: String,
+        params: Map<String, String>,
+        password: String? = null,
+        autologin: String? = null,
+        pin: String? = null
+    ): Result<ApiResult> = executeWithVersionFallback(
+        baseParams = params,
+        request = { effectiveParams ->
+            postRequest(
+                userAgent = userAgent,
+                params = effectiveParams,
+                password = password,
+                autologin = autologin,
+                pin = pin
+            )
+        }
+    )
+
+    private suspend fun postRequest(
         userAgent: String,
         params: Map<String, String>,
         password: String? = null,
@@ -171,6 +201,39 @@ class NationStatesApiClient @Inject constructor(
 
     companion object {
         const val BASE_URL = "https://www.nationstates.net/cgi-bin/api.cgi"
+        private const val API_VERSION_PARAM = "v"
+        internal const val PINNED_API_VERSION = "12"
+
+        internal fun applyPinnedVersion(params: Map<String, String>): Map<String, String> {
+            return params + (API_VERSION_PARAM to PINNED_API_VERSION)
+        }
+
+        internal fun stripVersion(params: Map<String, String>): Map<String, String> {
+            return params - API_VERSION_PARAM
+        }
+
+        internal fun shouldRetryWithoutVersion(error: Throwable): Boolean {
+            val apiError = error as? ApiException ?: return false
+            val message = apiError.message.orEmpty().lowercase()
+            if (!message.contains("version")) return false
+            return message.contains("unsupported")
+                || message.contains("invalid")
+                || message.contains("not support")
+                || message.contains("unknown")
+        }
+
+        internal suspend fun <T> executeWithVersionFallback(
+            baseParams: Map<String, String>,
+            request: suspend (Map<String, String>) -> Result<T>
+        ): Result<T> {
+            val pinnedAttempt = request(applyPinnedVersion(baseParams))
+            if (pinnedAttempt.isSuccess) return pinnedAttempt
+
+            val error = pinnedAttempt.exceptionOrNull() ?: return pinnedAttempt
+            if (!shouldRetryWithoutVersion(error)) return pinnedAttempt
+
+            return request(stripVersion(baseParams))
+        }
     }
 }
 
