@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -96,6 +97,26 @@ class SettingsDataSource @Inject constructor(
     suspend fun setDeepLApiKey(apiKey: String) {
         context.dataStore.edit { prefs ->
             prefs[KEY_DEEPL_API_KEY] = apiKey.trim()
+        }
+    }
+
+    val deepLUsageCharacterCount: Flow<Long?> = context.dataStore.data
+        .map { prefs -> prefs[KEY_DEEPL_USAGE_CHARACTER_COUNT] }
+
+    val deepLUsageCharacterLimit: Flow<Long?> = context.dataStore.data
+        .map { prefs -> prefs[KEY_DEEPL_USAGE_CHARACTER_LIMIT] }
+
+    suspend fun setDeepLUsage(characterCount: Long, characterLimit: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_DEEPL_USAGE_CHARACTER_COUNT] = characterCount
+            prefs[KEY_DEEPL_USAGE_CHARACTER_LIMIT] = characterLimit
+        }
+    }
+
+    suspend fun clearDeepLUsage() {
+        context.dataStore.edit { prefs ->
+            prefs -= KEY_DEEPL_USAGE_CHARACTER_COUNT
+            prefs -= KEY_DEEPL_USAGE_CHARACTER_LIMIT
         }
     }
 
@@ -194,6 +215,8 @@ class SettingsDataSource @Inject constructor(
         private val KEY_OPENROUTER_ZDR_ONLY = booleanPreferencesKey("openrouter_zdr_only")
         private const val DEFAULT_OPENROUTER_ZDR_ONLY = false
         private val KEY_DEEPL_API_KEY = stringPreferencesKey("deepl_api_key")
+        private val KEY_DEEPL_USAGE_CHARACTER_COUNT = longPreferencesKey("deepl_usage_character_count")
+        private val KEY_DEEPL_USAGE_CHARACTER_LIMIT = longPreferencesKey("deepl_usage_character_limit")
         private val KEY_ISSUE_TRANSLATION_ENABLED = booleanPreferencesKey("issue_translation_enabled")
         private const val DEFAULT_ISSUE_TRANSLATION_ENABLED = false
         private val KEY_ISSUE_TRANSLATION_TARGET_LANG = stringPreferencesKey("issue_translation_target_lang")

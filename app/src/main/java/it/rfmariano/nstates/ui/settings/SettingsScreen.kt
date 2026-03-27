@@ -34,6 +34,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -125,6 +126,10 @@ fun SettingsScreen(
                     openRouterApiKey = state.openRouterApiKey,
                     openRouterZdrOnly = state.openRouterZdrOnly,
                     deepLApiKey = state.deepLApiKey,
+                    deepLUsageCharacterCount = state.deepLUsageCharacterCount,
+                    deepLUsageCharacterLimit = state.deepLUsageCharacterLimit,
+                    deepLUsageRefreshing = state.deepLUsageRefreshing,
+                    deepLUsageErrorMessage = state.deepLUsageErrorMessage,
                     issueTranslationEnabled = state.issueTranslationEnabled,
                     issueTranslationAutoEnabled = state.issueTranslationAutoEnabled,
                     issueTranslationTargetLang = state.issueTranslationTargetLang,
@@ -165,6 +170,11 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.padding(innerPadding)
                 )
+                LaunchedEffect(state.deepLApiKey.trim()) {
+                    if (state.deepLApiKey.isNotBlank()) {
+                        viewModel.refreshDeepLUsage()
+                    }
+                }
             }
         }
     }
@@ -191,6 +201,10 @@ private fun SettingsContent(
     openRouterApiKey: String,
     openRouterZdrOnly: Boolean,
     deepLApiKey: String,
+    deepLUsageCharacterCount: Long?,
+    deepLUsageCharacterLimit: Long?,
+    deepLUsageRefreshing: Boolean,
+    deepLUsageErrorMessage: String?,
     issueTranslationEnabled: Boolean,
     issueTranslationAutoEnabled: Boolean,
     issueTranslationTargetLang: String,
@@ -435,6 +449,32 @@ private fun SettingsContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
+                    val usageText = if (deepLUsageCharacterCount != null && deepLUsageCharacterLimit != null) {
+                        "DeepL usage: ${deepLUsageCharacterCount.formatWithGrouping()} / ${deepLUsageCharacterLimit.formatWithGrouping()} characters"
+                    } else {
+                        "DeepL usage: not available yet"
+                    }
+                    Text(
+                        text = usageText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (deepLUsageRefreshing) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Refreshing usage...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (!deepLUsageErrorMessage.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = deepLUsageErrorMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -620,4 +660,8 @@ private fun SettingsContent(
 
         Spacer(modifier = Modifier.height(24.dp))
     }
+}
+
+private fun Long.formatWithGrouping(): String {
+    return "%,d".format(this)
 }

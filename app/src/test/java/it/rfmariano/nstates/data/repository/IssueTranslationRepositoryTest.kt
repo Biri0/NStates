@@ -1,6 +1,7 @@
 package it.rfmariano.nstates.data.repository
 
 import it.rfmariano.nstates.data.api.DeepLTranslationClient
+import it.rfmariano.nstates.data.model.DeepLUsage
 import it.rfmariano.nstates.data.model.Issue
 import it.rfmariano.nstates.data.model.IssueOption
 import kotlinx.coroutines.runBlocking
@@ -21,6 +22,10 @@ class IssueTranslationRepositoryTest {
                 sourceLang: String
             ): List<String> {
                 return texts.map { "T:$it" }
+            }
+
+            override suspend fun fetchUsage(apiKey: String): DeepLUsage {
+                return DeepLUsage(characterCount = 0L, characterLimit = 500000L)
             }
         }
         val repository = IssueTranslationRepository(fakeClient)
@@ -61,6 +66,10 @@ class IssueTranslationRepositoryTest {
             ): List<String> {
                 return listOf("only-one")
             }
+
+            override suspend fun fetchUsage(apiKey: String): DeepLUsage {
+                return DeepLUsage(characterCount = 0L, characterLimit = 500000L)
+            }
         }
         val repository = IssueTranslationRepository(fakeClient)
         val issue = Issue(
@@ -91,6 +100,10 @@ class IssueTranslationRepositoryTest {
             ): List<String> {
                 callCount.incrementAndGet()
                 return texts.map { "T:$it" }
+            }
+
+            override suspend fun fetchUsage(apiKey: String): DeepLUsage {
+                return DeepLUsage(characterCount = 0L, characterLimit = 500000L)
             }
         }
         val repository = IssueTranslationRepository(fakeClient)

@@ -10,6 +10,10 @@ sealed interface SettingsUiState {
         val openRouterApiKey: String,
         val openRouterZdrOnly: Boolean,
         val deepLApiKey: String,
+        val deepLUsageCharacterCount: Long?,
+        val deepLUsageCharacterLimit: Long?,
+        val deepLUsageRefreshing: Boolean,
+        val deepLUsageErrorMessage: String?,
         val issueTranslationEnabled: Boolean,
         val issueTranslationAutoEnabled: Boolean,
         val issueTranslationTargetLang: String
