@@ -6,8 +6,7 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,8 +41,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -53,6 +52,7 @@ import it.rfmariano.nstates.ui.common.NStatesCenteredLoading
 import it.rfmariano.nstates.ui.navigation.Routes
 import kotlinx.coroutines.launch
 
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -84,14 +84,11 @@ fun SettingsScreen(
         pendingNotificationEnable = false
     }
 
-    val hasNotificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    val hasNotificationPermission =
         ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.POST_NOTIFICATIONS
         ) == PackageManager.PERMISSION_GRANTED
-    } else {
-        true
-    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -143,16 +140,10 @@ fun SettingsScreen(
                             if (hasNotificationPermission) {
                                 viewModel.setIssueNotificationsEnabled(true)
                             } else if (!pendingNotificationEnable) {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    pendingNotificationEnable = true
-                                    notificationPermissionLauncher.launch(
-                                        Manifest.permission.POST_NOTIFICATIONS
-                                    )
-                                } else {
-                                    // Should be covered by hasNotificationPermission=true for < 33,
-                                    // but just in case logic falls through here.
-                                    viewModel.setIssueNotificationsEnabled(true)
-                                }
+                                pendingNotificationEnable = true
+                                notificationPermissionLauncher.launch(
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                )
                             }
                         } else {
                             viewModel.setIssueNotificationsEnabled(false)
@@ -388,20 +379,23 @@ private fun SettingsContent(
                     placeholder = { Text("sk-or-v1-...") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "ZDR-only providers",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Switch(
-                        checked = openRouterZdrOnly,
-                        onCheckedChange = onOpenRouterZdrOnlyChange
-                    )
+                val hasOpenRouterApiKey = openRouterApiKey.isNotBlank()
+                if (hasOpenRouterApiKey) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "ZDR-only providers",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = openRouterZdrOnly,
+                            onCheckedChange = onOpenRouterZdrOnlyChange
+                        )
+                    }
                 }
             }
         }

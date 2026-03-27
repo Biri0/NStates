@@ -25,6 +25,7 @@ class SettingsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<SettingsUiState>(SettingsUiState.Loading)
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+    private var pendingOpenRouterApiKey: String? = null
 
     init {
         viewModelScope.launch {
@@ -94,6 +95,7 @@ class SettingsViewModel @Inject constructor(
     fun setOpenRouterApiKey(apiKey: String) {
         val current = _uiState.value
         if (current is SettingsUiState.Ready) {
+            pendingOpenRouterApiKey = apiKey
             _uiState.value = current.copy(openRouterApiKey = apiKey)
             viewModelScope.launch {
                 settingsDataSource.setOpenRouterApiKey(apiKey)
@@ -151,10 +153,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun logout() {
-        repository.logout()
-    }
-
     fun switchAccount(nationName: String) {
         repository.switchAccount(nationName)
     }
@@ -184,12 +182,20 @@ class SettingsViewModel @Inject constructor(
         val accounts = repository.getAccounts()
             .map { it.nationName }
             .sortedBy { it.lowercase() }
+        val resolvedOpenRouterApiKey = pendingOpenRouterApiKey?.let { pending ->
+            if (pending.trim() == snapshot.openRouterApiKey) {
+                pendingOpenRouterApiKey = null
+                snapshot.openRouterApiKey
+            } else {
+                pending
+            }
+        } ?: snapshot.openRouterApiKey
         _uiState.value = SettingsUiState.Ready(
             nationName = snapshot.activeNation ?: "",
             accounts = accounts,
             initialPage = snapshot.initialPage,
             issueNotificationsEnabled = snapshot.issueNotificationsEnabled,
-            openRouterApiKey = snapshot.openRouterApiKey,
+            openRouterApiKey = resolvedOpenRouterApiKey,
             openRouterZdrOnly = snapshot.openRouterZdrOnly,
             deepLApiKey = snapshot.deepLApiKey,
             issueTranslationEnabled = snapshot.issueTranslationEnabled,
