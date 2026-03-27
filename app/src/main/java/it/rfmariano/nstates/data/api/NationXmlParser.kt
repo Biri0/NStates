@@ -31,6 +31,7 @@ class NationXmlParser @Inject constructor() {
         var category = ""
         var region = ""
         var flagUrl = ""
+        var bannerCode = ""
         var population = 0L
         var currency = ""
         var animal = ""
@@ -68,6 +69,7 @@ class NationXmlParser @Inject constructor() {
                     "CATEGORY" -> category = parser.nextText()
                     "REGION" -> region = parser.nextText()
                     "FLAG" -> flagUrl = parser.nextText()
+                    "BANNER" -> bannerCode = parser.nextText()
                     "POPULATION" -> population = parser.nextText().toLongOrNull() ?: 0L
                     "CURRENCY" -> currency = parser.nextText()
                     "ANIMAL" -> animal = parser.nextText()
@@ -110,6 +112,7 @@ class NationXmlParser @Inject constructor() {
             category = category,
             region = region,
             flagUrl = flagUrl,
+            bannerCode = bannerCode,
             population = population,
             currency = currency,
             animal = animal,

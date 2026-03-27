@@ -8,6 +8,7 @@ data class NationData(
     val category: String = "",
     val region: String = "",
     val flagUrl: String = "",
+    val bannerCode: String = "",
     val population: Long = 0,
     val currency: String = "",
     val animal: String = "",

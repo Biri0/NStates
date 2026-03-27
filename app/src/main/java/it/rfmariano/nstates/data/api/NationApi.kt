@@ -67,6 +67,7 @@ class NationApi @Inject constructor(
         val DEFAULT_SHARDS = listOf(
             "name", "fullname", "type", "motto", "category",
             "region", "flag", "population", "currency", "animal",
+            "banner",
             "leader", "capital", "founded", "lastactivity",
             "influence", "tax", "gdp", "income", "poorest", "richest",
             "majorindustry", "crime", "sensibilities",

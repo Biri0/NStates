@@ -4,20 +4,27 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
@@ -140,55 +147,138 @@ private fun NationHeader(
     userAgent: String,
     modifier: Modifier = Modifier
 ) {
+    var bannerLoadFailed by remember(nation.bannerCode, nation.flagUrl) { mutableStateOf(false) }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (nation.flagUrl.isNotBlank()) {
-            val context = LocalContext.current
-            val imageUrl = if (nation.flagUrl.startsWith("http")) nation.flagUrl else "https://www.nationstates.net${nation.flagUrl}"
-            val imageRequest = ImageRequest.Builder(context)
-                .data(imageUrl)
-                .httpHeaders(NetworkHeaders.Builder().set("User-Agent", userAgent).build())
-                .build()
+        val bannerUrl = nationBannerUrl(nation.bannerCode)
+        val flagUrl = nationFlagUrl(nation.flagUrl)
+        val shouldShowBanner = bannerUrl != null && !bannerLoadFailed
+        val bannerHeight = 74.dp
 
-            SubcomposeAsyncImage(
-                model = imageRequest,
-                contentDescription = "${nation.name} flag",
-                contentScale = ContentScale.Fit,
-                success = {
-                    SubcomposeAsyncImageContent(
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (shouldShowBanner) {
+                    val context = LocalContext.current
+                    val imageRequest = ImageRequest.Builder(context)
+                        .data(bannerUrl)
+                        .httpHeaders(NetworkHeaders.Builder().set("User-Agent", userAgent).build())
+                        .build()
+
+                    SubcomposeAsyncImage(
+                        model = imageRequest,
+                        contentDescription = "${nation.name} banner",
+                        contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 100.dp)
+                            .height(bannerHeight),
+                        error = {
+                            bannerLoadFailed = true
+                        },
+                        success = {
+                            SubcomposeAsyncImageContent(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(bannerHeight)
+                            )
+                        }
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
                 }
-            )
-        }
 
-        Text(
-            text = nation.fullName.ifBlank { nation.name },
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (flagUrl != null) {
+                        val context = LocalContext.current
+                        val imageRequest = ImageRequest.Builder(context)
+                            .data(flagUrl)
+                            .httpHeaders(NetworkHeaders.Builder().set("User-Agent", userAgent).build())
+                            .build()
 
-        if (nation.motto.isNotBlank()) {
-            Text(
-                text = "\"${nation.motto}\"",
-                style = MaterialTheme.typography.bodyMedium,
-                fontStyle = FontStyle.Italic,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+                        SubcomposeAsyncImage(
+                            model = imageRequest,
+                            contentDescription = "${nation.name} flag",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxWidth(0.55f)
+                                .widthIn(max = 190.dp),
+                            success = {
+                                SubcomposeAsyncImageContent(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(2f)
+                                        .heightIn(max = 96.dp)
+                                )
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
 
-        if (nation.type.isNotBlank()) {
-            Text(
-                text = nation.type,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                    Text(
+                        text = nation.fullName.ifBlank { nation.name },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    if (nation.type.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = nation.type,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    if (nation.motto.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "\"${nation.motto}\"",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
         }
+    }
+}
+
+private fun nationBannerUrl(rawBannerCode: String): String? {
+    val value = rawBannerCode.trim()
+    if (value.isBlank()) return null
+    if (value.startsWith("http://") || value.startsWith("https://")) return value
+
+    val normalized = value
+        .removePrefix("/images/banners/")
+        .removeSuffix(".jpg")
+        .trim()
+    if (normalized.isBlank()) return null
+
+    return "https://www.nationstates.net/images/banners/$normalized.jpg"
+}
+
+private fun nationFlagUrl(rawFlagUrl: String): String? {
+    val value = rawFlagUrl.trim()
+    if (value.isBlank()) return null
+    return if (value.startsWith("http://") || value.startsWith("https://")) {
+        value
+    } else {
+        "https://www.nationstates.net$value"
     }
 }
 
