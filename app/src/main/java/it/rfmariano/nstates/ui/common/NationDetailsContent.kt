@@ -5,14 +5,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
@@ -32,8 +37,10 @@ import coil3.compose.SubcomposeAsyncImageContent
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
+import it.rfmariano.nstates.data.model.Government
 import it.rfmariano.nstates.data.model.NationData
 import java.util.Locale
+import kotlin.math.abs
 
 @Composable
 fun NationDetailsContent(
@@ -87,20 +94,41 @@ fun NationDetailsContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        InfoCard(title = "Leading Causes of Death") {
+            PieChartSection(
+                slices = nation.deaths.causes.map { cause ->
+                    PieSliceData(
+                        label = cause.type,
+                        value = cause.percentage
+                    )
+                },
+                emptyMessage = "No death causes available"
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        InfoCard(title = "Economy Breakdown") {
+            val sectors = nation.sectors
+            PieChartSection(
+                slices = listOf(
+                    PieSliceData("Government", sectors.government),
+                    PieSliceData("Industry", sectors.industry),
+                    PieSliceData("Public Sector", sectors.publicSector),
+                    PieSliceData("Black Market", sectors.blackMarket)
+                ),
+                emptyMessage = "No economy sector data available"
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         InfoCard(title = "Government Spending") {
             val govt = nation.government
-            InfoRow(label = "Administration", value = "${govt.administration}%")
-            InfoRow(label = "Defence", value = "${govt.defence}%")
-            InfoRow(label = "Education", value = "${govt.education}%")
-            InfoRow(label = "Environment", value = "${govt.environment}%")
-            InfoRow(label = "Healthcare", value = "${govt.healthcare}%")
-            InfoRow(label = "Commerce", value = "${govt.commerce}%")
-            InfoRow(label = "International Aid", value = "${govt.internationalAid}%")
-            InfoRow(label = "Law & Order", value = "${govt.lawAndOrder}%")
-            InfoRow(label = "Public Transport", value = "${govt.publicTransport}%")
-            InfoRow(label = "Social Equality", value = "${govt.socialEquality}%")
-            InfoRow(label = "Spirituality", value = "${govt.spirituality}%")
-            InfoRow(label = "Welfare", value = "${govt.welfare}%")
+            PieChartSection(
+                slices = governmentSpendingSlices(govt),
+                emptyMessage = "No government spending data available"
+            )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -345,3 +373,157 @@ private fun formatCurrency(amount: Long): String {
         else -> amount.toString()
     }
 }
+
+private fun governmentSpendingSlices(govt: Government): List<PieSliceData> = listOf(
+    PieSliceData("Administration", govt.administration),
+    PieSliceData("Defence", govt.defence),
+    PieSliceData("Education", govt.education),
+    PieSliceData("Environment", govt.environment),
+    PieSliceData("Healthcare", govt.healthcare),
+    PieSliceData("Commerce", govt.commerce),
+    PieSliceData("International Aid", govt.internationalAid),
+    PieSliceData("Law & Order", govt.lawAndOrder),
+    PieSliceData("Public Transport", govt.publicTransport),
+    PieSliceData("Social Equality", govt.socialEquality),
+    PieSliceData("Spirituality", govt.spirituality),
+    PieSliceData("Welfare", govt.welfare)
+)
+
+private data class PieSliceData(
+    val label: String,
+    val value: Double
+)
+
+@Composable
+private fun PieChartSection(
+    slices: List<PieSliceData>,
+    emptyMessage: String,
+    modifier: Modifier = Modifier
+) {
+    val positiveSlices = slices
+        .filter { it.value > 0.0 }
+        .sortedByDescending { it.value }
+    if (positiveSlices.isEmpty()) {
+        Text(
+            text = emptyMessage,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+
+    val colors = chartColors()
+    val total = positiveSlices.sumOf { it.value }
+    val normalizedSlices = if (total > 0.0) {
+        positiveSlices.map { it.copy(value = (it.value / total) * 100.0) }
+    } else {
+        positiveSlices
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        PieChart(
+            slices = normalizedSlices,
+            colors = colors,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        normalizedSlices.forEachIndexed { index, slice ->
+            PieLegendRow(
+                color = colors[index % colors.size],
+                label = slice.label,
+                percentage = formatPercent(slice.value)
+            )
+        }
+
+        val totalDelta = abs(normalizedSlices.sumOf { it.value } - 100.0)
+        if (totalDelta > 0.01) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Total: ${formatPercent(normalizedSlices.sumOf { it.value })}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun PieChart(
+    slices: List<PieSliceData>,
+    colors: List<Color>,
+    modifier: Modifier = Modifier
+) {
+    val total = slices.sumOf { it.value }.toFloat().coerceAtLeast(0.0001f)
+    val ringColor = MaterialTheme.colorScheme.surfaceVariant
+
+    Canvas(modifier = modifier.size(180.dp)) {
+        var startAngle = -90f
+        slices.forEachIndexed { index, slice ->
+            val sweepAngle = ((slice.value.toFloat() / total) * 360f).coerceAtLeast(0f)
+            drawArc(
+                color = colors[index % colors.size],
+                startAngle = startAngle,
+                sweepAngle = sweepAngle,
+                useCenter = true
+            )
+            startAngle += sweepAngle
+        }
+
+        drawCircle(
+            color = ringColor,
+            radius = size.minDimension * 0.28f
+        )
+    }
+}
+
+@Composable
+private fun PieLegendRow(
+    color: Color,
+    label: String,
+    percentage: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(12.dp),
+            shape = CircleShape,
+            color = color,
+            content = {}
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = percentage,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun chartColors(): List<Color> = listOf(
+    MaterialTheme.colorScheme.primary,
+    MaterialTheme.colorScheme.tertiary,
+    MaterialTheme.colorScheme.secondary,
+    MaterialTheme.colorScheme.error,
+    Color(0xFF4CAF50),
+    Color(0xFFFF9800),
+    Color(0xFF9C27B0),
+    Color(0xFF009688),
+    Color(0xFF3F51B5),
+    Color(0xFFFFC107),
+    Color(0xFF795548),
+    Color(0xFF607D8B)
+)
+
+private fun formatPercent(value: Double): String = String.format(Locale.getDefault(), "%.2f%%", value)

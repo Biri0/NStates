@@ -23,6 +23,7 @@ data class NationData(
     val poorest: Long = 0,
     val richest: Long = 0,
     val majorIndustry: String = "",
+    val sectors: EconomySectors = EconomySectors(),
     val crime: String = "",
     val sensibilities: String = "",
     val govtDescription: String = "",
@@ -33,6 +34,13 @@ data class NationData(
     val government: Government = Government(),
     val deaths: Deaths = Deaths(),
     val policies: List<String> = emptyList()
+)
+
+data class EconomySectors(
+    val blackMarket: Double = 0.0,
+    val government: Double = 0.0,
+    val industry: Double = 0.0,
+    val publicSector: Double = 0.0
 )
 
 data class Freedom(

@@ -2,6 +2,7 @@ package it.rfmariano.nstates.data.api
 
 import it.rfmariano.nstates.data.model.DeathCause
 import it.rfmariano.nstates.data.model.Deaths
+import it.rfmariano.nstates.data.model.EconomySectors
 import it.rfmariano.nstates.data.model.Freedom
 import it.rfmariano.nstates.data.model.Government
 import it.rfmariano.nstates.data.model.NationData
@@ -46,6 +47,7 @@ class NationXmlParser @Inject constructor() {
         var poorest = 0L
         var richest = 0L
         var majorIndustry = ""
+        var sectors = EconomySectors()
         var crime = ""
         var sensibilities = ""
         var govtDescription = ""
@@ -84,6 +86,7 @@ class NationXmlParser @Inject constructor() {
                     "POOREST" -> poorest = parser.nextText().toLongOrNull() ?: 0L
                     "RICHEST" -> richest = parser.nextText().toLongOrNull() ?: 0L
                     "MAJORINDUSTRY" -> majorIndustry = parser.nextText()
+                    "SECTORS" -> sectors = parseSectors(parser)
                     "CRIME" -> crime = parser.nextText()
                     "SENSIBILITIES" -> sensibilities = parser.nextText()
                     "GOVTDESC" -> govtDescription = parser.nextText()
@@ -127,6 +130,7 @@ class NationXmlParser @Inject constructor() {
             poorest = poorest,
             richest = richest,
             majorIndustry = majorIndustry,
+            sectors = sectors,
             crime = crime,
             sensibilities = sensibilities,
             govtDescription = govtDescription,
@@ -235,6 +239,35 @@ class NationXmlParser @Inject constructor() {
         }
 
         return Deaths(causes = causes)
+    }
+
+    private fun parseSectors(parser: XmlPullParser): EconomySectors {
+        var blackMarket = 0.0
+        var government = 0.0
+        var industry = 0.0
+        var publicSector = 0.0
+
+        var eventType = parser.next()
+        while (eventType != XmlPullParser.END_DOCUMENT) {
+            if (eventType == XmlPullParser.START_TAG) {
+                when (parser.name) {
+                    "BLACKMARKET" -> blackMarket = parser.nextText().toDoubleOrNull() ?: 0.0
+                    "GOVERNMENT" -> government = parser.nextText().toDoubleOrNull() ?: 0.0
+                    "INDUSTRY" -> industry = parser.nextText().toDoubleOrNull() ?: 0.0
+                    "PUBLIC" -> publicSector = parser.nextText().toDoubleOrNull() ?: 0.0
+                }
+            } else if (eventType == XmlPullParser.END_TAG && parser.name == "SECTORS") {
+                break
+            }
+            eventType = parser.next()
+        }
+
+        return EconomySectors(
+            blackMarket = blackMarket,
+            government = government,
+            industry = industry,
+            publicSector = publicSector
+        )
     }
 
     private fun parsePolicy(parser: XmlPullParser): String {

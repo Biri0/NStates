@@ -70,7 +70,7 @@ class NationApi @Inject constructor(
             "banner",
             "leader", "capital", "founded", "lastactivity",
             "influence", "tax", "gdp", "income", "poorest", "richest",
-            "majorindustry", "crime", "sensibilities",
+            "majorindustry", "sectors", "crime", "sensibilities",
             "govtdesc", "industrydesc", "wa", "endorsements",
             "freedom", "govt", "deaths", "policies"
         )
