@@ -1,6 +1,7 @@
 package it.rfmariano.nstates.ui.common
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
@@ -48,119 +50,32 @@ fun NationDetailsContent(
     userAgent: String,
     modifier: Modifier = Modifier
 ) {
+    val sections = nationDetailSections(nation)
+    val sectionSpacing = 12.dp
+    val minCardWidth = 320.dp
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(16.dp)
     ) {
         NationHeader(nation = nation, userAgent = userAgent)
-
         Spacer(modifier = Modifier.height(16.dp))
 
-        InfoCard(title = "Overview") {
-            InfoRow(label = "Full Name", value = nation.fullName)
-            InfoRow(label = "Category", value = nation.category)
-            InfoRow(label = "Region", value = nation.region)
-            InfoRow(label = "Population", value = formatPopulation(nation.population))
-            InfoRow(label = "WA Status", value = nation.waStatus)
-            if (nation.influence.isNotBlank()) {
-                InfoRow(label = "Influence", value = nation.influence)
-            }
-            if (nation.founded.isNotBlank()) {
-                InfoRow(label = "Founded", value = nation.founded)
-            }
-            InfoRow(label = "Last Activity", value = nation.lastActivity)
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InfoCard(title = "Freedoms") {
-            InfoRow(label = "Civil Rights", value = nation.freedom.civilRights)
-            InfoRow(label = "Economy", value = nation.freedom.economy)
-            InfoRow(label = "Political Freedom", value = nation.freedom.politicalFreedom)
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InfoCard(title = "Economy") {
-            InfoRow(label = "GDP", value = formatCurrency(nation.gdp))
-            InfoRow(label = "Income", value = formatCurrency(nation.income))
-            InfoRow(label = "Poorest", value = formatCurrency(nation.poorest))
-            InfoRow(label = "Richest", value = formatCurrency(nation.richest))
-            InfoRow(label = "Tax Rate", value = "${nation.tax}%")
-            InfoRow(label = "Currency", value = nation.currency)
-            InfoRow(label = "Major Industry", value = nation.majorIndustry)
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InfoCard(title = "Leading Causes of Death") {
-            PieChartSection(
-                slices = nation.deaths.causes.map { cause ->
-                    PieSliceData(
-                        label = cause.type,
-                        value = cause.percentage
-                    )
-                },
-                emptyMessage = "No death causes available"
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InfoCard(title = "Economy Breakdown") {
-            val sectors = nation.sectors
-            PieChartSection(
-                slices = listOf(
-                    PieSliceData("Government", sectors.government),
-                    PieSliceData("Industry", sectors.industry),
-                    PieSliceData("Public Sector", sectors.publicSector),
-                    PieSliceData("Black Market", sectors.blackMarket)
-                ),
-                emptyMessage = "No economy sector data available"
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InfoCard(title = "Government Spending") {
-            val govt = nation.government
-            PieChartSection(
-                slices = governmentSpendingSlices(govt),
-                emptyMessage = "No government spending data available"
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InfoCard(title = "Details") {
-            if (nation.leader.isNotBlank()) {
-                InfoRow(label = "Leader", value = nation.leader)
-            }
-            if (nation.capital.isNotBlank()) {
-                InfoRow(label = "Capital", value = nation.capital)
-            }
-            InfoRow(label = "Animal", value = nation.animal)
-            InfoRow(label = "Sensibilities", value = nation.sensibilities)
-            InfoRow(label = "Crime", value = nation.crime)
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InfoCard(title = "Policies") {
-            if (nation.policies.isEmpty()) {
-                Text(
-                    text = "No active policies",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                nation.policies.forEach { policy ->
-                    Text(
-                        text = "• $policy",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val columns = (maxWidth / minCardWidth).toInt().coerceAtLeast(1)
+            MasonryGrid(
+                columns = columns,
+                horizontalSpacing = sectionSpacing,
+                verticalSpacing = sectionSpacing
+            ) {
+                sections.forEach { section ->
+                    InfoCard(
+                        title = section.title,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        section.content()
+                    }
                 }
             }
         }
@@ -168,6 +83,156 @@ fun NationDetailsContent(
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
+
+@Composable
+private fun MasonryGrid(
+    columns: Int,
+    horizontalSpacing: androidx.compose.ui.unit.Dp,
+    verticalSpacing: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Layout(
+        modifier = modifier.fillMaxWidth(),
+        content = content
+    ) { measurables, constraints ->
+        if (measurables.isEmpty()) {
+            return@Layout layout(constraints.minWidth, 0) {}
+        }
+
+        val hSpacingPx = horizontalSpacing.roundToPx()
+        val vSpacingPx = verticalSpacing.roundToPx()
+        val safeColumns = columns.coerceAtLeast(1)
+        val totalSpacing = hSpacingPx * (safeColumns - 1)
+        val columnWidth = ((constraints.maxWidth - totalSpacing) / safeColumns).coerceAtLeast(0)
+        val itemConstraints = constraints.copy(
+            minWidth = columnWidth,
+            maxWidth = columnWidth
+        )
+
+        val columnHeights = IntArray(safeColumns)
+        val placeables = ArrayList<androidx.compose.ui.layout.Placeable>(measurables.size)
+        val xPositions = IntArray(measurables.size)
+        val yPositions = IntArray(measurables.size)
+
+        measurables.forEachIndexed { index, measurable ->
+            val placeable = measurable.measure(itemConstraints)
+            val targetColumn = columnHeights.indices.minByOrNull { columnHeights[it] } ?: 0
+            val x = targetColumn * (columnWidth + hSpacingPx)
+            val y = columnHeights[targetColumn]
+
+            placeables.add(placeable)
+            xPositions[index] = x
+            yPositions[index] = y
+
+            columnHeights[targetColumn] = y + placeable.height + vSpacingPx
+        }
+
+        val height = (columnHeights.maxOrNull() ?: 0).let { h ->
+            if (h == 0) 0 else h - vSpacingPx
+        }.coerceAtLeast(0)
+
+        layout(constraints.maxWidth, height) {
+            placeables.forEachIndexed { index, placeable ->
+                placeable.placeRelative(xPositions[index], yPositions[index])
+            }
+        }
+    }
+}
+
+private data class NationDetailSection(
+    val title: String,
+    val content: @Composable () -> Unit
+)
+
+private fun nationDetailSections(nation: NationData): List<NationDetailSection> = listOf(
+    NationDetailSection(title = "Overview") {
+        InfoRow(label = "Full Name", value = nation.fullName)
+        InfoRow(label = "Category", value = nation.category)
+        InfoRow(label = "Region", value = nation.region)
+        InfoRow(label = "Population", value = formatPopulation(nation.population))
+        InfoRow(label = "WA Status", value = nation.waStatus)
+        if (nation.influence.isNotBlank()) {
+            InfoRow(label = "Influence", value = nation.influence)
+        }
+        if (nation.founded.isNotBlank()) {
+            InfoRow(label = "Founded", value = nation.founded)
+        }
+        InfoRow(label = "Last Activity", value = nation.lastActivity)
+    },
+    NationDetailSection(title = "Freedoms") {
+        InfoRow(label = "Civil Rights", value = nation.freedom.civilRights)
+        InfoRow(label = "Economy", value = nation.freedom.economy)
+        InfoRow(label = "Political Freedom", value = nation.freedom.politicalFreedom)
+    },
+    NationDetailSection(title = "Economy") {
+        InfoRow(label = "GDP", value = formatCurrency(nation.gdp))
+        InfoRow(label = "Income", value = formatCurrency(nation.income))
+        InfoRow(label = "Poorest", value = formatCurrency(nation.poorest))
+        InfoRow(label = "Richest", value = formatCurrency(nation.richest))
+        InfoRow(label = "Tax Rate", value = "${nation.tax}%")
+        InfoRow(label = "Currency", value = nation.currency)
+        InfoRow(label = "Major Industry", value = nation.majorIndustry)
+    },
+    NationDetailSection(title = "Leading Causes of Death") {
+        PieChartSection(
+            slices = nation.deaths.causes.map { cause ->
+                PieSliceData(
+                    label = cause.type,
+                    value = cause.percentage
+                )
+            },
+            emptyMessage = "No death causes available"
+        )
+    },
+    NationDetailSection(title = "Economy Breakdown") {
+        val sectors = nation.sectors
+        PieChartSection(
+            slices = listOf(
+                PieSliceData("Government", sectors.government),
+                PieSliceData("Industry", sectors.industry),
+                PieSliceData("Public Sector", sectors.publicSector),
+                PieSliceData("Black Market", sectors.blackMarket)
+            ),
+            emptyMessage = "No economy sector data available"
+        )
+    },
+    NationDetailSection(title = "Government Spending") {
+        val govt = nation.government
+        PieChartSection(
+            slices = governmentSpendingSlices(govt),
+            emptyMessage = "No government spending data available"
+        )
+    },
+    NationDetailSection(title = "Details") {
+        if (nation.leader.isNotBlank()) {
+            InfoRow(label = "Leader", value = nation.leader)
+        }
+        if (nation.capital.isNotBlank()) {
+            InfoRow(label = "Capital", value = nation.capital)
+        }
+        InfoRow(label = "Animal", value = nation.animal)
+        InfoRow(label = "Sensibilities", value = nation.sensibilities)
+        InfoRow(label = "Crime", value = nation.crime)
+    },
+    NationDetailSection(title = "Policies") {
+        if (nation.policies.isEmpty()) {
+            Text(
+                text = "No active policies",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            nation.policies.forEach { policy ->
+                Text(
+                    text = "• $policy",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+)
 
 @Composable
 private fun NationHeader(
