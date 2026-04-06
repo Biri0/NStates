@@ -3,6 +3,7 @@ package it.rfmariano.nstates.ui.issues
 import android.content.ClipData
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -723,12 +724,25 @@ private fun ChatMessageBubble(
     content: AnnotatedString,
     footer: String? = null
 ) {
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(0.86f),
+            modifier = Modifier
+                .fillMaxWidth(0.86f)
+                .combinedClickable(
+                    onClick = { },
+                    onLongClick = {
+                        scope.launch {
+                            clipboard.setClipEntry(
+                                ClipEntry(ClipData.newPlainText("Chat message", content.text))
+                            )
+                        }
+                    }
+                ),
             colors = CardDefaults.cardColors(
                 containerColor = if (isUser) {
                     MaterialTheme.colorScheme.secondaryContainer
