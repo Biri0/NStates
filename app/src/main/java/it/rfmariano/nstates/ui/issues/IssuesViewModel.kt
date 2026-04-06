@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import it.rfmariano.nstates.data.api.OpenRouterApiClient
 import it.rfmariano.nstates.data.api.IssueAnswerParseException
 import it.rfmariano.nstates.data.local.SettingsDataSource
 import it.rfmariano.nstates.data.model.Issue
@@ -100,6 +101,14 @@ class IssuesViewModel @Inject constructor(
             settingsDataSource.openRouterZdrOnly.collectLatest { enabled ->
                 _chatState.value = _chatState.value.copy(
                     openRouterZdrOnly = enabled
+                )
+            }
+        }
+
+        viewModelScope.launch {
+            settingsDataSource.openRouterModelId.collectLatest { modelId ->
+                _chatState.value = _chatState.value.copy(
+                    openRouterModelId = modelId
                 )
             }
         }
@@ -377,6 +386,7 @@ class IssuesViewModel @Inject constructor(
                         issue = issue,
                         messages = conversation,
                         apiKey = apiKey,
+                        modelId = _chatState.value.openRouterModelId.ifBlank { OpenRouterApiClient.DEFAULT_MODEL },
                         openRouterZdrOnly = _chatState.value.openRouterZdrOnly
                     ).collect { token ->
                         collected.append(token)

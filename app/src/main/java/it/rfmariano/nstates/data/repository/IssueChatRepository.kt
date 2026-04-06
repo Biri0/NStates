@@ -46,6 +46,7 @@ class IssueChatRepository @Inject constructor(
         issue: Issue,
         messages: List<IssueChatMessage>,
         apiKey: String,
+        modelId: String,
         openRouterZdrOnly: Boolean
     ): Flow<String> {
         val contextPrompt = buildContextPrompt(issue)
@@ -67,7 +68,7 @@ class IssueChatRepository @Inject constructor(
         }
         return openRouterApiClient.streamChat(
             apiKey = apiKey,
-            model = OpenRouterApiClient.DEFAULT_MODEL,
+            model = modelId,
             messages = payload,
             openRouterZdrOnly = openRouterZdrOnly
         )

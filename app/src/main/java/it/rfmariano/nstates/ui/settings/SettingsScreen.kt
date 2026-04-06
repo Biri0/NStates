@@ -14,9 +14,14 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -27,6 +32,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -44,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -125,6 +132,12 @@ fun SettingsScreen(
                     issueNotificationsEnabled = state.issueNotificationsEnabled,
                     openRouterApiKey = state.openRouterApiKey,
                     openRouterZdrOnly = state.openRouterZdrOnly,
+                    openRouterSelectedModelId = state.openRouterSelectedModelId,
+                    openRouterSelectedModelLabel = state.openRouterSelectedModelLabel,
+                    openRouterModels = state.openRouterModels,
+                    openRouterModelsLoading = state.openRouterModelsLoading,
+                    openRouterModelsErrorMessage = state.openRouterModelsErrorMessage,
+                    openRouterPriceFilter = state.openRouterPriceFilter,
                     deepLApiKey = state.deepLApiKey,
                     deepLUsageCharacterCount = state.deepLUsageCharacterCount,
                     deepLUsageCharacterLimit = state.deepLUsageCharacterLimit,
@@ -136,6 +149,9 @@ fun SettingsScreen(
                     onInitialPageChange = { viewModel.setInitialPage(it) },
                     onOpenRouterApiKeyChange = viewModel::setOpenRouterApiKey,
                     onOpenRouterZdrOnlyChange = viewModel::setOpenRouterZdrOnly,
+                    onOpenRouterModelChange = viewModel::setOpenRouterModelId,
+                    onOpenRouterPriceFilterChange = viewModel::setOpenRouterPriceFilter,
+                    onRefreshOpenRouterModels = viewModel::refreshOpenRouterModels,
                     onDeepLApiKeyChange = viewModel::setDeepLApiKey,
                     onIssueTranslationEnabledChange = viewModel::setIssueTranslationEnabled,
                     onIssueTranslationAutoEnabledChange = viewModel::setIssueTranslationAutoEnabled,
@@ -200,6 +216,12 @@ private fun SettingsContent(
     issueNotificationsEnabled: Boolean,
     openRouterApiKey: String,
     openRouterZdrOnly: Boolean,
+    openRouterSelectedModelId: String,
+    openRouterSelectedModelLabel: String,
+    openRouterModels: List<SettingsUiState.OpenRouterModelOption>,
+    openRouterModelsLoading: Boolean,
+    openRouterModelsErrorMessage: String?,
+    openRouterPriceFilter: SettingsUiState.OpenRouterPriceFilter,
     deepLApiKey: String,
     deepLUsageCharacterCount: Long?,
     deepLUsageCharacterLimit: Long?,
@@ -211,6 +233,9 @@ private fun SettingsContent(
     onInitialPageChange: (String) -> Unit,
     onOpenRouterApiKeyChange: (String) -> Unit,
     onOpenRouterZdrOnlyChange: (Boolean) -> Unit,
+    onOpenRouterModelChange: (String) -> Unit,
+    onOpenRouterPriceFilterChange: (SettingsUiState.OpenRouterPriceFilter) -> Unit,
+    onRefreshOpenRouterModels: () -> Unit,
     onDeepLApiKeyChange: (String) -> Unit,
     onIssueTranslationEnabledChange: (Boolean) -> Unit,
     onIssueTranslationAutoEnabledChange: (Boolean) -> Unit,
@@ -221,6 +246,8 @@ private fun SettingsContent(
     onRemoveAccount: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var isModelDialogOpen by remember { mutableStateOf(false) }
+    var modelSearchQuery by remember { mutableStateOf("") }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -401,6 +428,61 @@ private fun SettingsContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
+                            text = "Model: $openRouterSelectedModelLabel",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedButton(onClick = onRefreshOpenRouterModels) {
+                            Text("Refresh")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            modelSearchQuery = ""
+                            isModelDialogOpen = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Choose model")
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (!openRouterModelsErrorMessage.isNullOrBlank()) {
+                        Text(
+                            text = openRouterModelsErrorMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = onRefreshOpenRouterModels,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Retry")
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    if (openRouterModelsLoading) {
+                        Text(
+                            text = "Loading models...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else if (openRouterModelsErrorMessage.isNullOrBlank() && openRouterModels.isEmpty()) {
+                        Text(
+                            text = "No models available.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
                             text = "ZDR-only providers",
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.weight(1f)
@@ -412,6 +494,148 @@ private fun SettingsContent(
                     }
                 }
             }
+        }
+
+        if (isModelDialogOpen) {
+            val filteredByQuery = openRouterModels.filter { option ->
+                if (modelSearchQuery.isBlank()) {
+                    true
+                } else {
+                    option.label.contains(modelSearchQuery, ignoreCase = true) ||
+                        option.id.contains(modelSearchQuery, ignoreCase = true)
+                }
+            }
+            val sortedOptions = filteredByQuery.sortedWith(
+                compareBy<SettingsUiState.OpenRouterModelOption> { !(it.id == openRouterSelectedModelId || it.isRecent) }
+                    .thenBy { !it.isFree }
+                    .thenBy { it.label.lowercase() }
+                    .thenBy { it.id.lowercase() }
+            )
+            AlertDialog(
+                onDismissRequest = { isModelDialogOpen = false },
+                confirmButton = {
+                    OutlinedButton(onClick = { isModelDialogOpen = false }) {
+                        Text("Close")
+                    }
+                },
+                title = { Text("Choose OpenRouter model") },
+                text = {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val allSelected = openRouterPriceFilter == SettingsUiState.OpenRouterPriceFilter.ALL
+                            if (allSelected) {
+                                Button(
+                                    onClick = { onOpenRouterPriceFilterChange(SettingsUiState.OpenRouterPriceFilter.ALL) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("All")
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { onOpenRouterPriceFilterChange(SettingsUiState.OpenRouterPriceFilter.ALL) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("All")
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            val freeSelected = openRouterPriceFilter == SettingsUiState.OpenRouterPriceFilter.FREE
+                            if (freeSelected) {
+                                Button(
+                                    onClick = { onOpenRouterPriceFilterChange(SettingsUiState.OpenRouterPriceFilter.FREE) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Free")
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { onOpenRouterPriceFilterChange(SettingsUiState.OpenRouterPriceFilter.FREE) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Free")
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            val premiumSelected = openRouterPriceFilter == SettingsUiState.OpenRouterPriceFilter.PREMIUM
+                            if (premiumSelected) {
+                                Button(
+                                    onClick = { onOpenRouterPriceFilterChange(SettingsUiState.OpenRouterPriceFilter.PREMIUM) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Premium")
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { onOpenRouterPriceFilterChange(SettingsUiState.OpenRouterPriceFilter.PREMIUM) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Premium")
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = modelSearchQuery,
+                            onValueChange = { modelSearchQuery = it },
+                            singleLine = true,
+                            label = { Text("Search model") },
+                            placeholder = { Text("Type model name or id") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        if (openRouterModelsLoading) {
+                            Text(
+                                text = "Loading models...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else if (sortedOptions.isEmpty()) {
+                            Text(
+                                text = "No models match your search.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 320.dp)
+                            ) {
+                                items(sortedOptions, key = { it.id }) { model ->
+                                    val isSelected = model.id == openRouterSelectedModelId
+                                    if (isSelected) {
+                                        Button(
+                                            onClick = {
+                                                onOpenRouterModelChange(model.id)
+                                                isModelDialogOpen = false
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            val suffix = if (model.isFree) " (Free)" else " (Premium)"
+                                            Text("${model.label}$suffix")
+                                        }
+                                    } else {
+                                        OutlinedButton(
+                                            onClick = {
+                                                onOpenRouterModelChange(model.id)
+                                                isModelDialogOpen = false
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            val suffix = if (model.isFree) " (Free)" else " (Premium)"
+                                            Text("${model.label}$suffix")
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            )
         }
 
         Spacer(modifier = Modifier.height(12.dp))

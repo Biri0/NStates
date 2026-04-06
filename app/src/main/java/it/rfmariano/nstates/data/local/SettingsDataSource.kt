@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import it.rfmariano.nstates.data.api.OpenRouterApiClient
 import it.rfmariano.nstates.data.translation.DeepLLanguageSupport
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -86,6 +87,21 @@ class SettingsDataSource @Inject constructor(
     suspend fun setOpenRouterZdrOnly(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[KEY_OPENROUTER_ZDR_ONLY] = enabled
+        }
+    }
+
+    val openRouterModelId: Flow<String> = context.dataStore.data
+        .map { prefs ->
+            prefs[KEY_OPENROUTER_MODEL_ID]?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: OpenRouterApiClient.DEFAULT_MODEL
+        }
+
+    suspend fun setOpenRouterModelId(modelId: String) {
+        val normalized = modelId.trim()
+        require(normalized.isNotBlank()) { "modelId cannot be blank" }
+        context.dataStore.edit { prefs ->
+            prefs[KEY_OPENROUTER_MODEL_ID] = normalized
         }
     }
 
@@ -213,6 +229,7 @@ class SettingsDataSource @Inject constructor(
         private const val DEFAULT_ISSUE_NOTIFICATIONS = false
         private val KEY_OPENROUTER_API_KEY = stringPreferencesKey("openrouter_api_key")
         private val KEY_OPENROUTER_ZDR_ONLY = booleanPreferencesKey("openrouter_zdr_only")
+        private val KEY_OPENROUTER_MODEL_ID = stringPreferencesKey("openrouter_model_id")
         private const val DEFAULT_OPENROUTER_ZDR_ONLY = false
         private val KEY_DEEPL_API_KEY = stringPreferencesKey("deepl_api_key")
         private val KEY_DEEPL_USAGE_CHARACTER_COUNT = longPreferencesKey("deepl_usage_character_count")

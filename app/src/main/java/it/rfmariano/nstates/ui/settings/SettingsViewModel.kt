@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import it.rfmariano.nstates.data.api.DeepLTranslationClient
+import it.rfmariano.nstates.data.api.OpenRouterApiClient
 import it.rfmariano.nstates.data.local.SettingsDataSource
 import it.rfmariano.nstates.data.repository.NationRepository
 import it.rfmariano.nstates.notifications.NextIssueNotificationScheduler
@@ -21,6 +22,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val repository: NationRepository,
     private val deepLClient: DeepLTranslationClient,
+    private val openRouterApiClient: OpenRouterApiClient,
     private val settingsDataSource: SettingsDataSource,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
@@ -30,22 +32,39 @@ class SettingsViewModel @Inject constructor(
     private var pendingOpenRouterApiKey: String? = null
     private val deepLUsageRefreshing = MutableStateFlow(false)
     private val deepLUsageErrorMessage = MutableStateFlow<String?>(null)
+    private val openRouterModelCatalog = MutableStateFlow<List<OpenRouterApiClient.ModelInfo>>(emptyList())
+    private val recentOpenRouterModelId = MutableStateFlow<String?>(null)
+    private val openRouterModelsLoading = MutableStateFlow(false)
+    private val openRouterModelsErrorMessage = MutableStateFlow<String?>(null)
+    private val openRouterPriceFilter = MutableStateFlow(SettingsUiState.OpenRouterPriceFilter.ALL)
 
     init {
         viewModelScope.launch {
+            val openRouterPrimarySettings = combine(
+                settingsDataSource.openRouterApiKey,
+                settingsDataSource.openRouterZdrOnly,
+                settingsDataSource.openRouterModelId
+            ) { openRouterApiKey, openRouterZdrOnly, openRouterModelId ->
+                OpenRouterPrimarySettingsSnapshot(
+                    openRouterApiKey = openRouterApiKey,
+                    openRouterZdrOnly = openRouterZdrOnly,
+                    openRouterModelId = openRouterModelId
+                )
+            }
+
             val primarySettings = combine(
                 repository.activeNation,
                 settingsDataSource.initialPage,
                 settingsDataSource.issueNotificationsEnabled,
-                settingsDataSource.openRouterApiKey,
-                settingsDataSource.openRouterZdrOnly
-            ) { activeNation, initialPage, issueNotificationsEnabled, openRouterApiKey, openRouterZdrOnly ->
+                openRouterPrimarySettings
+            ) { activeNation, initialPage, issueNotificationsEnabled, openRouter ->
                 PrimarySettingsSnapshot(
                     activeNation = activeNation,
                     initialPage = initialPage,
                     issueNotificationsEnabled = issueNotificationsEnabled,
-                    openRouterApiKey = openRouterApiKey,
-                    openRouterZdrOnly = openRouterZdrOnly
+                    openRouterApiKey = openRouter.openRouterApiKey,
+                    openRouterZdrOnly = openRouter.openRouterZdrOnly,
+                    openRouterModelId = openRouter.openRouterModelId
                 )
             }
 
@@ -63,24 +82,29 @@ class SettingsViewModel @Inject constructor(
                 )
             }
 
-            val settingsWithoutTargetLanguage = combine(
-                primarySettings,
+            val openRouterModelsState = combine(
+                openRouterModelCatalog,
+                recentOpenRouterModelId,
+                openRouterModelsLoading,
+                openRouterModelsErrorMessage,
+                openRouterPriceFilter
+            ) { openRouterModels, recentModelId, modelsLoading, modelsErrorMessage, priceFilter ->
+                OpenRouterModelsSnapshot(
+                    openRouterModels = openRouterModels,
+                    recentModelId = recentModelId,
+                    openRouterModelsLoading = modelsLoading,
+                    openRouterModelsErrorMessage = modelsErrorMessage,
+                    openRouterPriceFilter = priceFilter
+                )
+            }
+
+            val translationSettings = combine(
                 settingsDataSource.deepLApiKey,
                 deepLUsageState,
                 settingsDataSource.issueTranslationEnabled,
                 settingsDataSource.issueTranslationAutoEnabled
-            ) {
-                primary,
-                deepLApiKey,
-                usageState,
-                issueTranslationEnabled,
-                issueTranslationAutoEnabled ->
-                SettingsSnapshotWithoutTargetLanguage(
-                    activeNation = primary.activeNation,
-                    initialPage = primary.initialPage,
-                    issueNotificationsEnabled = primary.issueNotificationsEnabled,
-                    openRouterApiKey = primary.openRouterApiKey,
-                    openRouterZdrOnly = primary.openRouterZdrOnly,
+            ) { deepLApiKey, usageState, issueTranslationEnabled, issueTranslationAutoEnabled ->
+                TranslationSettingsWithoutTargetLanguageSnapshot(
                     deepLApiKey = deepLApiKey,
                     deepLUsageCharacterCount = usageState.characterCount,
                     deepLUsageCharacterLimit = usageState.characterLimit,
@@ -88,6 +112,54 @@ class SettingsViewModel @Inject constructor(
                     deepLUsageErrorMessage = usageState.errorMessage,
                     issueTranslationEnabled = issueTranslationEnabled,
                     issueTranslationAutoEnabled = issueTranslationAutoEnabled
+                )
+            }
+
+            val settingsWithoutTargetLanguage = combine(
+                primarySettings,
+                translationSettings,
+                openRouterModelsState
+            ) { primary, translation, openRouterState ->
+                val selectedModel = openRouterState.openRouterModels
+                    .firstOrNull { it.id == primary.openRouterModelId }
+                val selectedModelLabel = selectedModel?.name
+                    ?: if (primary.openRouterModelId == OpenRouterApiClient.DEFAULT_MODEL) {
+                        "OpenRouter default"
+                    } else {
+                        primary.openRouterModelId
+                    }
+                val filteredModels = when (openRouterState.openRouterPriceFilter) {
+                    SettingsUiState.OpenRouterPriceFilter.ALL -> openRouterState.openRouterModels
+                    SettingsUiState.OpenRouterPriceFilter.FREE -> openRouterState.openRouterModels.filter { it.isFree }
+                    SettingsUiState.OpenRouterPriceFilter.PREMIUM -> openRouterState.openRouterModels.filter { !it.isFree }
+                }.map { model ->
+                    val isRecent = openRouterState.recentModelId?.equals(model.id, ignoreCase = true) == true
+                    SettingsUiState.OpenRouterModelOption(
+                        id = model.id,
+                        label = model.name,
+                        isFree = model.isFree,
+                        isRecent = isRecent
+                    )
+                }
+                SettingsSnapshotWithoutTargetLanguage(
+                    activeNation = primary.activeNation,
+                    initialPage = primary.initialPage,
+                    issueNotificationsEnabled = primary.issueNotificationsEnabled,
+                    openRouterApiKey = primary.openRouterApiKey,
+                    openRouterZdrOnly = primary.openRouterZdrOnly,
+                    openRouterSelectedModelId = primary.openRouterModelId,
+                    openRouterSelectedModelLabel = selectedModelLabel,
+                    openRouterModels = filteredModels,
+                    openRouterModelsLoading = openRouterState.openRouterModelsLoading,
+                    openRouterModelsErrorMessage = openRouterState.openRouterModelsErrorMessage,
+                    openRouterPriceFilter = openRouterState.openRouterPriceFilter,
+                    deepLApiKey = translation.deepLApiKey,
+                    deepLUsageCharacterCount = translation.deepLUsageCharacterCount,
+                    deepLUsageCharacterLimit = translation.deepLUsageCharacterLimit,
+                    deepLUsageRefreshing = translation.deepLUsageRefreshing,
+                    deepLUsageErrorMessage = translation.deepLUsageErrorMessage,
+                    issueTranslationEnabled = translation.issueTranslationEnabled,
+                    issueTranslationAutoEnabled = translation.issueTranslationAutoEnabled
                 )
             }
 
@@ -101,6 +173,12 @@ class SettingsViewModel @Inject constructor(
                     issueNotificationsEnabled = snapshot.issueNotificationsEnabled,
                     openRouterApiKey = snapshot.openRouterApiKey,
                     openRouterZdrOnly = snapshot.openRouterZdrOnly,
+                    openRouterSelectedModelId = snapshot.openRouterSelectedModelId,
+                    openRouterSelectedModelLabel = snapshot.openRouterSelectedModelLabel,
+                    openRouterModels = snapshot.openRouterModels,
+                    openRouterModelsLoading = snapshot.openRouterModelsLoading,
+                    openRouterModelsErrorMessage = snapshot.openRouterModelsErrorMessage,
+                    openRouterPriceFilter = snapshot.openRouterPriceFilter,
                     deepLApiKey = snapshot.deepLApiKey,
                     deepLUsageCharacterCount = snapshot.deepLUsageCharacterCount,
                     deepLUsageCharacterLimit = snapshot.deepLUsageCharacterLimit,
@@ -114,6 +192,7 @@ class SettingsViewModel @Inject constructor(
                 updateState(snapshot)
             }
         }
+        refreshOpenRouterModels()
     }
 
     fun setInitialPage(route: String) {
@@ -146,6 +225,7 @@ class SettingsViewModel @Inject constructor(
             _uiState.value = current.copy(openRouterApiKey = apiKey)
             viewModelScope.launch {
                 settingsDataSource.setOpenRouterApiKey(apiKey)
+                refreshOpenRouterModels()
             }
         }
     }
@@ -157,6 +237,52 @@ class SettingsViewModel @Inject constructor(
             viewModelScope.launch {
                 settingsDataSource.setOpenRouterZdrOnly(enabled)
             }
+        }
+    }
+
+    fun setOpenRouterModelId(modelId: String) {
+        val current = _uiState.value
+        if (current is SettingsUiState.Ready) {
+            val selected = current.openRouterModels.firstOrNull { it.id == modelId }
+            val selectedLabel = selected?.label ?: modelId
+            _uiState.value = current.copy(
+                openRouterSelectedModelId = modelId,
+                openRouterSelectedModelLabel = selectedLabel
+            )
+            recentOpenRouterModelId.value = modelId
+            viewModelScope.launch {
+                settingsDataSource.setOpenRouterModelId(modelId)
+            }
+        }
+    }
+
+    fun setOpenRouterPriceFilter(filter: SettingsUiState.OpenRouterPriceFilter) {
+        val current = _uiState.value
+        if (current is SettingsUiState.Ready) {
+            _uiState.value = current.copy(openRouterPriceFilter = filter)
+            openRouterPriceFilter.value = filter
+        }
+    }
+
+    fun refreshOpenRouterModels() {
+        if (openRouterModelsLoading.value) return
+        viewModelScope.launch {
+            openRouterModelsLoading.value = true
+            openRouterModelsErrorMessage.value = null
+            val apiKey = (_uiState.value as? SettingsUiState.Ready)
+                ?.openRouterApiKey
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+            runCatching {
+                openRouterApiClient.fetchModels(apiKey = apiKey)
+            }.onSuccess { models ->
+                openRouterModelCatalog.value = models
+                openRouterModelsErrorMessage.value = null
+            }.onFailure { error ->
+                openRouterModelsErrorMessage.value =
+                    error.message ?: "Failed to fetch OpenRouter models."
+            }
+            openRouterModelsLoading.value = false
         }
     }
 
@@ -250,6 +376,12 @@ class SettingsViewModel @Inject constructor(
                     issueNotificationsEnabled = current.issueNotificationsEnabled,
                     openRouterApiKey = current.openRouterApiKey,
                     openRouterZdrOnly = current.openRouterZdrOnly,
+                    openRouterSelectedModelId = current.openRouterSelectedModelId,
+                    openRouterSelectedModelLabel = current.openRouterSelectedModelLabel,
+                    openRouterModels = current.openRouterModels,
+                    openRouterModelsLoading = current.openRouterModelsLoading,
+                    openRouterModelsErrorMessage = current.openRouterModelsErrorMessage,
+                    openRouterPriceFilter = current.openRouterPriceFilter,
                     deepLApiKey = current.deepLApiKey,
                     deepLUsageCharacterCount = current.deepLUsageCharacterCount,
                     deepLUsageCharacterLimit = current.deepLUsageCharacterLimit,
@@ -283,6 +415,12 @@ class SettingsViewModel @Inject constructor(
             issueNotificationsEnabled = snapshot.issueNotificationsEnabled,
             openRouterApiKey = resolvedOpenRouterApiKey,
             openRouterZdrOnly = snapshot.openRouterZdrOnly,
+            openRouterSelectedModelId = snapshot.openRouterSelectedModelId,
+            openRouterSelectedModelLabel = snapshot.openRouterSelectedModelLabel,
+            openRouterModels = snapshot.openRouterModels,
+            openRouterModelsLoading = snapshot.openRouterModelsLoading,
+            openRouterModelsErrorMessage = snapshot.openRouterModelsErrorMessage,
+            openRouterPriceFilter = snapshot.openRouterPriceFilter,
             deepLApiKey = snapshot.deepLApiKey,
             deepLUsageCharacterCount = snapshot.deepLUsageCharacterCount,
             deepLUsageCharacterLimit = snapshot.deepLUsageCharacterLimit,
@@ -300,6 +438,12 @@ class SettingsViewModel @Inject constructor(
         val issueNotificationsEnabled: Boolean,
         val openRouterApiKey: String,
         val openRouterZdrOnly: Boolean,
+        val openRouterSelectedModelId: String,
+        val openRouterSelectedModelLabel: String,
+        val openRouterModels: List<SettingsUiState.OpenRouterModelOption>,
+        val openRouterModelsLoading: Boolean,
+        val openRouterModelsErrorMessage: String?,
+        val openRouterPriceFilter: SettingsUiState.OpenRouterPriceFilter,
         val deepLApiKey: String,
         val deepLUsageCharacterCount: Long?,
         val deepLUsageCharacterLimit: Long?,
@@ -316,6 +460,12 @@ class SettingsViewModel @Inject constructor(
         val issueNotificationsEnabled: Boolean,
         val openRouterApiKey: String,
         val openRouterZdrOnly: Boolean,
+        val openRouterSelectedModelId: String,
+        val openRouterSelectedModelLabel: String,
+        val openRouterModels: List<SettingsUiState.OpenRouterModelOption>,
+        val openRouterModelsLoading: Boolean,
+        val openRouterModelsErrorMessage: String?,
+        val openRouterPriceFilter: SettingsUiState.OpenRouterPriceFilter,
         val deepLApiKey: String,
         val deepLUsageCharacterCount: Long?,
         val deepLUsageCharacterLimit: Long?,
@@ -330,7 +480,32 @@ class SettingsViewModel @Inject constructor(
         val initialPage: String,
         val issueNotificationsEnabled: Boolean,
         val openRouterApiKey: String,
-        val openRouterZdrOnly: Boolean
+        val openRouterZdrOnly: Boolean,
+        val openRouterModelId: String
+    )
+
+    private data class OpenRouterPrimarySettingsSnapshot(
+        val openRouterApiKey: String,
+        val openRouterZdrOnly: Boolean,
+        val openRouterModelId: String
+    )
+
+    private data class OpenRouterModelsSnapshot(
+        val openRouterModels: List<OpenRouterApiClient.ModelInfo>,
+        val recentModelId: String?,
+        val openRouterModelsLoading: Boolean,
+        val openRouterModelsErrorMessage: String?,
+        val openRouterPriceFilter: SettingsUiState.OpenRouterPriceFilter
+    )
+
+    private data class TranslationSettingsWithoutTargetLanguageSnapshot(
+        val deepLApiKey: String,
+        val deepLUsageCharacterCount: Long?,
+        val deepLUsageCharacterLimit: Long?,
+        val deepLUsageRefreshing: Boolean,
+        val deepLUsageErrorMessage: String?,
+        val issueTranslationEnabled: Boolean,
+        val issueTranslationAutoEnabled: Boolean
     )
 
     private data class DeepLUsageSnapshot(
